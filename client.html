@@ -512,6 +512,123 @@
     opacity: 0.5;
   }
 
+  /* ---------- Reply preview (Discord-style) ---------- */
+  .reply-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 2px;
+    padding-left: 0;
+    cursor: pointer;
+    max-width: 100%;
+    overflow: hidden;
+    user-select: none;
+    position: relative;
+  }
+  .reply-preview::before {
+    content: "";
+    display: inline-block;
+    width: 28px;
+    height: 10px;
+    margin-right: 4px;
+    margin-left: 18px;
+    border-left: 2px solid var(--border);
+    border-top: 2px solid var(--border);
+    border-top-left-radius: 6px;
+    align-self: flex-end;
+    flex-shrink: 0;
+  }
+  .reply-preview .reply-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .reply-preview .reply-name {
+    font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .reply-preview .reply-snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dim);
+    min-width: 0;
+  }
+  .reply-preview:hover .reply-snippet,
+  .reply-preview:hover .reply-name { color: var(--text); }
+  .reply-preview .reply-img-icon {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+  .reply-preview.deleted {
+    cursor: default;
+    font-style: italic;
+  }
+  .reply-preview.deleted .reply-snippet { color: var(--text-dim); }
+
+  .msg.reply-flash {
+    animation: replyFlash 1.6s ease-out;
+  }
+  @keyframes replyFlash {
+    0%   { background: rgba(88,101,242,0.30); }
+    60%  { background: rgba(88,101,242,0.18); }
+    100% { background: transparent; }
+  }
+
+  /* ---------- Reply composer bar ---------- */
+  .reply-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: -1px;
+  }
+  .reply-bar .reply-bar-label {
+    color: var(--text-dim);
+  }
+  .reply-bar .reply-bar-user {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .reply-bar .reply-bar-snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+    color: var(--text);
+  }
+  .reply-bar .reply-bar-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .reply-bar .reply-bar-cancel:hover {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+
   /* ---------- Inline message images ---------- */
   .msg-images {
     margin-top: 6px;
@@ -603,6 +720,12 @@
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(2px);
+  }
+  /* Game modals anchor to a fixed offset from the top so the board never
+     moves when banner text or side-panel content changes height. */
+  .modal-backdrop:has(.game-modal) {
+    align-items: flex-start;
+    padding-top: 4vh;
   }
   .modal {
     background: var(--bg-elev);
@@ -856,7 +979,11 @@
   .wordle-input input { width: 180px; text-transform: uppercase; }
 
   /* Word Hunt */
+  /* Centered, but stable: the board has fixed width and the side panel has
+     fixed width so neither column ever shifts horizontally as the side
+     panel content grows. */
   .wh-wrap { display: flex; gap: 30px; padding: 10px; justify-content: center; align-items: flex-start; }
+  .wh-wrap .wh-board-col { width: 312px; flex: 0 0 312px; display: flex; justify-content: center; }
   .wh-board {
     display: grid;
     grid-template-columns: repeat(4, 72px);
@@ -884,7 +1011,8 @@
   .wh-cell.active { background: var(--accent); color: white; border-color: var(--accent); transform: scale(0.96); }
   .wh-cell.last   { background: var(--accent-hover); }
   .wh-side {
-    min-width: 200px;
+    width: 240px;
+    flex: 0 0 240px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -905,11 +1033,16 @@
     font-size: 18px;
     font-weight: 700;
     letter-spacing: 2px;
-    min-height: 22px;
+    height: 42px;
+    line-height: 22px;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .wh-current.err { color: var(--bad); }
   .wh-current.ok  { color: var(--good); }
-  .wh-word-list { font-size: 12px; max-height: 200px; overflow-y: auto; line-height: 1.6; }
+  .wh-word-list { font-size: 12px; height: 220px; overflow-y: auto; line-height: 1.6; box-sizing: border-box; padding: 4px; background: rgba(0,0,0,0.15); border-radius: 6px; }
   .wh-word-list .w { background: var(--bg-elev); padding: 2px 8px; margin: 2px; border-radius: 10px; display: inline-block; }
   .wh-timer {
     text-align: center;
@@ -982,13 +1115,185 @@
   .uno-color-pick { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
   .uno-color-pick .swatch { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 3px solid white; }
 
-  /* 8-Ball */
-  .pool-wrap { display: flex; flex-direction: column; gap: 10px; align-items: center; }
-  .pool-canvas-wrap { position: relative; }
-  .pool-canvas { background: #2d6a4f; border-radius: 12px; border: 12px solid #5d2906; box-shadow: 0 8px 22px rgba(0,0,0,0.5); cursor: crosshair; touch-action: none; }
-  .pool-info { display: flex; gap: 18px; font-size: 13px; }
-  .pool-info .me, .pool-info .opp { padding: 6px 12px; background: var(--bg-input); border-radius: 6px; }
-  .pool-info .me.active, .pool-info .opp.active { background: var(--accent); color: white; }
+  /* 8-Ball ----------------------------------------------------------- */
+  .pool-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+    width: 100%;
+  }
+  .pool-scoreboard {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .pool-player {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    min-width: 0;
+  }
+  .pool-player.active {
+    background: linear-gradient(135deg, rgba(88,101,242,0.20), rgba(88,101,242,0.05));
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset, 0 4px 16px rgba(88,101,242,0.25);
+  }
+  .pool-player .top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    overflow: hidden;
+  }
+  .pool-player .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pool-player.right .top { justify-content: flex-end; }
+  .pool-player.right .tray { justify-content: flex-end; }
+  .pool-player .group {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+  }
+  .pool-player .group.solid  { color: #fdcb6e; background: rgba(253,203,110,0.12); }
+  .pool-player .group.stripe { color: #74b9ff; background: rgba(116,185,255,0.12); }
+  .pool-player .turn-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    flex-shrink: 0;
+    display: none;
+  }
+  .pool-player.active .turn-dot { display: inline-block; }
+  .pool-player .tray {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 22px;
+  }
+  .pool-tray-ball {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #1a1a1a;
+    background: #f4d03f;
+    flex-shrink: 0;
+    box-shadow: inset 1px 1px 2px rgba(255,255,255,0.5),
+                inset -1px -1px 3px rgba(0,0,0,0.25);
+  }
+  .pool-tray-ball.stripe {
+    background: linear-gradient(to bottom, #fff 0%, #fff 28%, currentColor 28%, currentColor 72%, #fff 72%, #fff 100%);
+    color: inherit;
+  }
+  .pool-tray-ball .num {
+    background: #fff;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    color: #111;
+    line-height: 1;
+  }
+  .pool-tray-ball.eight { background: #1a1a1a; color: #fff; }
+  .pool-tray-ball.eight .num { background: #fff; color: #111; }
+
+  .pool-vs {
+    align-self: center;
+    color: var(--text-dim);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+  }
+
+  .pool-stage {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  .pool-canvas-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 760px;
+    aspect-ratio: 800 / 400;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #6e3a16 0%, #4a230b 100%);
+    padding: 14px;
+    box-sizing: border-box;
+    box-shadow:
+      0 14px 40px rgba(0,0,0,0.55),
+      inset 0 0 0 2px rgba(0,0,0,0.35),
+      inset 0 0 0 4px rgba(212,175,55,0.18);
+    user-select: none;
+  }
+  .pool-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    cursor: crosshair;
+    touch-action: none;
+    background: #1d5f3a;
+  }
+  .pool-canvas.placing { cursor: cell; }
+  .pool-canvas.aiming { cursor: grabbing; }
+
+  .pool-banner {
+    text-align: center;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pool-banner.foul {
+    background: rgba(248,113,113,0.13);
+    border-color: rgba(248,113,113,0.4);
+    color: #fca5a5;
+  }
+  .pool-banner.you {
+    background: rgba(74,222,128,0.12);
+    border-color: rgba(74,222,128,0.4);
+    color: #86efac;
+  }
+  .pool-hint {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-top: -4px;
+  }
+  @media (max-width: 540px) {
+    .pool-scoreboard { grid-template-columns: 1fr 1fr; }
+    .pool-vs { display: none; }
+    .pool-canvas-wrap { padding: 10px; }
+  }
 
   /* shared error/text */
   .game-banner { padding: 8px 12px; background: var(--bg-input); border-radius: 6px; text-align: center; font-size: 13px; }
@@ -1241,7 +1546,7 @@
 //==============================================================
 // CONFIG
 //==============================================================
-const WS_URL = "ws://localhost:8765";
+const WS_URL = "ws://ec2-3-144-138-147.us-east-2.compute.amazonaws.com:8765";
 const HTTP_BASE = WS_URL.replace(/^wss?:/, (m) => m === "wss:" ? "https:" : "http:").replace(/\/$/, "");
 const RECONNECT_DELAY_MS = 2500;
 const PING_INTERVAL_MS = 15000;
@@ -1368,6 +1673,7 @@ const state = {
   unreadCount: 0,
   firstUnreadId: null,
   attachments: [],  // pending image uploads: {id, name, mime, dataB64, previewUrl}
+  replyingTo: null, // {id, username, content} of the message we're replying to
 };
 
 const BASE_TITLE = "How To Pick Up Flakes";
@@ -1672,7 +1978,7 @@ function renderAllMessages() {
       prevUser = null;
       prevType = null;
     }
-    const grouped = !m.system && m.username === prevUser && prevType === "msg";
+    const grouped = !m.system && m.username === prevUser && prevType === "msg" && !m.reply_to;
     messagesList.appendChild(renderMessage(m, grouped));
     if (m.system) {
       prevUser = null;
@@ -1711,6 +2017,10 @@ function renderMessage(m, grouped) {
 
   const body = document.createElement("div");
   body.className = "msg-body";
+
+  if (!m.deleted && m.reply_to) {
+    body.appendChild(renderReplyPreview(m));
+  }
 
   const head = document.createElement("div");
   head.className = "msg-head";
@@ -1774,6 +2084,16 @@ function renderMessage(m, grouped) {
     });
     actions.appendChild(addBtn);
 
+    const replyBtn = document.createElement("button");
+    replyBtn.className = "msg-action-btn";
+    replyBtn.title = "Reply";
+    replyBtn.textContent = "↩";
+    replyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startReply(m);
+    });
+    actions.appendChild(replyBtn);
+
     const canDelete = m.username === state.username || state.role === "admin";
     if (canDelete) {
       const delBtn = document.createElement("button");
@@ -1801,6 +2121,137 @@ function renderMessage(m, grouped) {
     });
   }
   return wrap;
+}
+
+function renderReplyPreview(m) {
+  const wrap = document.createElement("div");
+  wrap.className = "reply-preview";
+  const preview = m.reply_preview || null;
+  const targetId = m.reply_to;
+
+  if (!preview) {
+    wrap.classList.add("deleted");
+    const sn = document.createElement("span");
+    sn.className = "reply-snippet";
+    sn.textContent = "Original message not found";
+    wrap.appendChild(sn);
+    return wrap;
+  }
+
+  if (preview.deleted) {
+    wrap.classList.add("deleted");
+    const sn = document.createElement("span");
+    sn.className = "reply-snippet";
+    sn.textContent = "Original message was deleted";
+    wrap.appendChild(sn);
+    return wrap;
+  }
+
+  const av = document.createElement("span");
+  av.className = "reply-avatar";
+  av.textContent = (preview.username || "?").charAt(0).toUpperCase();
+  av.style.background = colorFor(preview.username);
+  wrap.appendChild(av);
+
+  const nm = document.createElement("span");
+  nm.className = "reply-name";
+  nm.textContent = "@" + (preview.username || "");
+  wrap.appendChild(nm);
+
+  const sn = document.createElement("span");
+  sn.className = "reply-snippet";
+  let snippetText = preview.content || "";
+  if (!snippetText && preview.has_image) {
+    snippetText = "[image]";
+  }
+  sn.innerHTML = renderTextWithEmoji(snippetText);
+  wrap.appendChild(sn);
+
+  if (preview.has_image && preview.content) {
+    const ic = document.createElement("span");
+    ic.className = "reply-img-icon";
+    ic.textContent = " 🖼";
+    wrap.appendChild(ic);
+  }
+
+  wrap.title = "Jump to message";
+  wrap.addEventListener("click", (e) => {
+    e.stopPropagation();
+    scrollToMessage(targetId);
+  });
+  return wrap;
+}
+
+function scrollToMessage(messageId) {
+  if (messageId == null) return;
+  const el = messagesList.querySelector(`.msg[data-message-id="${messageId}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("reply-flash");
+  void el.offsetWidth;
+  el.classList.add("reply-flash");
+  setTimeout(() => el.classList.remove("reply-flash"), 1700);
+}
+
+function startReply(m) {
+  if (!m || m.deleted) return;
+  let snippet = (m.content || "").trim();
+  if (!snippet && Array.isArray(m.images) && m.images.length) {
+    snippet = "[image]";
+  }
+  state.replyingTo = {
+    id: m.id,
+    username: m.username,
+    content: snippet,
+  };
+  renderReplyBar();
+  if (msgInput && !msgInput.disabled) msgInput.focus();
+}
+
+function cancelReply() {
+  state.replyingTo = null;
+  renderReplyBar();
+}
+
+function renderReplyBar() {
+  const inputArea = document.querySelector(".input-area");
+  if (!inputArea) return;
+  let bar = document.getElementById("reply-bar");
+  if (!state.replyingTo) {
+    if (bar) bar.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "reply-bar";
+    bar.className = "reply-bar";
+    const inputWrap = inputArea.querySelector(".input-wrap");
+    inputArea.insertBefore(bar, inputWrap);
+  }
+  bar.innerHTML = "";
+
+  const label = document.createElement("span");
+  label.className = "reply-bar-label";
+  label.textContent = "Replying to";
+  bar.appendChild(label);
+
+  const user = document.createElement("span");
+  user.className = "reply-bar-user";
+  user.textContent = "@" + state.replyingTo.username;
+  bar.appendChild(user);
+
+  const snip = document.createElement("span");
+  snip.className = "reply-bar-snippet";
+  snip.innerHTML = renderTextWithEmoji(state.replyingTo.content || "");
+  bar.appendChild(snip);
+
+  const x = document.createElement("button");
+  x.className = "reply-bar-cancel";
+  x.type = "button";
+  x.title = "Cancel reply (Esc)";
+  x.textContent = "×";
+  x.addEventListener("click", cancelReply);
+  bar.appendChild(x);
 }
 
 function updateReactionsEl(container, reactions) {
@@ -1844,6 +2295,7 @@ function handleNewMessage(m) {
 
   const last = messagesList.lastElementChild;
   const grouped = !wasFirstUnread &&
+                  !m.reply_to &&
                   last && last.dataset && last.dataset.messageId &&
                   state.messages.length >= 2 &&
                   state.messages[state.messages.length - 2].username === m.username;
@@ -1878,6 +2330,22 @@ function handleMessageDeleted(data) {
     const grouped = oldEl.classList.contains("grouped");
     const newEl = renderMessage(msg, grouped);
     oldEl.replaceWith(newEl);
+  }
+  // Mark any messages that replied to this one as having a deleted parent
+  for (const other of state.messages) {
+    if (other.reply_to === mid && other.reply_preview) {
+      other.reply_preview = { ...other.reply_preview, deleted: true, content: "" };
+      const otherEl = messagesList.querySelector(`.msg[data-message-id="${other.id}"]`);
+      if (otherEl && !other.deleted) {
+        const grouped = otherEl.classList.contains("grouped");
+        const newEl = renderMessage(other, grouped);
+        otherEl.replaceWith(newEl);
+      }
+    }
+  }
+  // If we were composing a reply to this deleted message, cancel it
+  if (state.replyingTo && state.replyingTo.id === mid) {
+    cancelReply();
   }
 }
 
@@ -1981,6 +2449,9 @@ msgInput.addEventListener("keydown", (e) => {
   } else if (e.key === "Enter") {
     e.preventDefault();
     sendMessage();
+  } else if (e.key === "Escape" && state.replyingTo) {
+    e.preventDefault();
+    cancelReply();
   }
 });
 
@@ -1994,11 +2465,16 @@ function sendMessage() {
     name: a.name, mime: a.mime, data_b64: a.dataB64,
   }));
   if (!v && !images.length) return;
-  const ok = send({ type: "send_message", content: v, images });
+  const payload = { type: "send_message", content: v, images };
+  if (state.replyingTo && state.replyingTo.id != null) {
+    payload.reply_to = state.replyingTo.id;
+  }
+  const ok = send(payload);
   if (!ok) return;
   msgInput.value = "";
   clearAttachments();
   closeSuggest();
+  cancelReply();
 }
 
 //----------------- Emoji helpers -----------------
@@ -2528,7 +3004,7 @@ document.addEventListener("keydown", (e) => {
 //==============================================================
 const GAME_META = {
   word_hunt:  { name: "Word Hunt",        icon: "🔤", desc: "Trace as many words as you can in 80 seconds." },
-  eight_ball: { name: "8-Ball Pool",      icon: "🎱", desc: "Classic billiards. Drag from cue ball to aim." },
+  eight_ball: { name: "8-Ball Pool",      icon: "🎱", desc: "Classic billiards — drag from cue ball, longer drag = more power." },
   chess:      { name: "Chess",            icon: "♟️", desc: "Full chess with castling, en-passant and promotion." },
   wordle:     { name: "Wordle Challenge", icon: "🟩", desc: "Each picks a 5-letter word for the other to guess." },
   uno:        { name: "UNO",              icon: "🃏", desc: "2–4 players. Match color or number, use specials." },
@@ -3275,6 +3751,8 @@ function renderWordHunt(body, s) {
   const wrap = document.createElement("div");
   wrap.className = "wh-wrap";
 
+  const boardCol = document.createElement("div");
+  boardCol.className = "wh-board-col";
   const board = document.createElement("div");
   board.className = "wh-board";
   whUI.cells = [];
@@ -3286,7 +3764,8 @@ function renderWordHunt(body, s) {
     board.appendChild(cell);
     whUI.cells.push(cell);
   }
-  wrap.appendChild(board);
+  boardCol.appendChild(board);
+  wrap.appendChild(boardCol);
 
   const side = document.createElement("div");
   side.className = "wh-side";
@@ -3347,6 +3826,7 @@ function renderWordHuntList(s) {
   if (!whUI.list) return;
   const me = state.username;
   const opp = s.players.find((p) => p !== me);
+  const wasAtBottom = whUI.list.scrollTop + whUI.list.clientHeight >= whUI.list.scrollHeight - 4;
   if (s.ended && s.all_words) {
     const meWords = s.all_words[me] || [];
     const oppWords = s.all_words[opp] || [];
@@ -3355,6 +3835,7 @@ function renderWordHuntList(s) {
   } else {
     whUI.list.innerHTML = (s.my_words || []).map((w)=>`<span class="w">${w}</span>`).join("");
   }
+  if (wasAtBottom) whUI.list.scrollTop = whUI.list.scrollHeight;
 }
 
 function whUpdateTimer(s) {
@@ -3485,8 +3966,12 @@ GAME_PARTIAL_UPDATERS["word_hunt"] = (modal, s) => {
 // ===========================================================================
 // CHESS renderer
 // ===========================================================================
-const PIECE_GLYPH = { K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙",
+// Use the solid (filled) glyphs for BOTH colors so silhouettes match,
+// then color each side with a contrasting outline for readability on any square.
+const PIECE_GLYPH = { K:"♚", Q:"♛", R:"♜", B:"♝", N:"♞", P:"♟",
                        k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
+const PIECE_OUTLINE_BLACK = "0 0 2px #fff, 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 0 1px 0 #fff, 0 -1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff";
+const PIECE_OUTLINE_WHITE = "0 0 2px #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000";
 const chessUI = { selected: null, legal: [] };
 
 function renderChess(body, s) {
@@ -3509,7 +3994,14 @@ function renderChess(body, s) {
         const piece = document.createElement("div");
         piece.className = "piece";
         piece.textContent = PIECE_GLYPH[p] || "?";
-        if (p === p.toLowerCase()) { piece.style.color = "#222"; piece.style.textShadow = "0 0 1px #fff"; }
+        if (p === p.toLowerCase()) {
+          piece.style.color = "#1a1a1a";
+          piece.style.textShadow = PIECE_OUTLINE_BLACK;
+        } else {
+          piece.style.color = "#fafafa";
+          piece.style.textShadow = PIECE_OUTLINE_WHITE;
+        }
+        piece.style.fontWeight = "900";
         sq.appendChild(piece);
       }
       if (s.last_move && ((s.last_move.from[0]===r && s.last_move.from[1]===c) ||
@@ -3761,192 +4253,847 @@ function unoColorHex(c) {
 }
 
 // ===========================================================================
-// 8-BALL POOL renderer (canvas + animation)
+// 8-BALL POOL renderer (GamePigeon-style)
 // ===========================================================================
-const poolUI = { canvas: null, ctx: null, animation: null, aim: null, lastFrameSig: null };
+const POOL_BALL_COLORS = {
+  0: "#fefefe",   // cue
+  1: "#f4d03f", 9: "#f4d03f",
+  2: "#2563eb", 10: "#2563eb",
+  3: "#dc2626", 11: "#dc2626",
+  4: "#7c3aed", 12: "#7c3aed",
+  5: "#ea580c", 13: "#ea580c",
+  6: "#15803d", 14: "#15803d",
+  7: "#7f1d1d", 15: "#7f1d1d",
+  8: "#101010",
+};
+
+const poolUI = {
+  // DOM refs
+  wrap: null,
+  canvas: null,
+  ctx: null,
+  banner: null,
+  hint: null,
+  trays: { left: null, right: null },
+  scoreboard: { left: null, right: null },
+  resizeObs: null,
+  // gameplay
+  state: null,
+  myTurn: false,
+  // animation
+  animationId: null,
+  animationFrames: null,
+  animationIdx: 0,
+  lastShotKey: null,
+  // aiming (drag from cue, pull-back determines power)
+  aim: null,         // { angle: rad, power: 0..1, mouseX, mouseY }
+  hover: null,       // { x, y } when desktop mouse hovers (no drag)
+  aiming: false,
+  // cue placement (in-hand)
+  ghostCue: null,    // { x, y } current preview position
+  // pointer listeners (for cleanup)
+  listeners: [],
+  // displayed balls (for redraw without recomputation)
+  displayBalls: null,
+  // cached cssSize for hidpi
+  cssW: 0,
+  cssH: 0,
+};
+
+GAME_PARTIAL_UPDATERS["eight_ball"] = function (modal, s) {
+  // Only do partial updates if our DOM is still present
+  if (!poolUI.wrap || !modal.contains(poolUI.wrap)) return false;
+  poolUI.state = s;
+  poolUI.myTurn = s.current === state.username && !s.ended;
+  updatePoolScoreboard(s);
+  updatePoolBanner(s);
+  maybeAnimateLastShot(s);
+  poolUpdateInteractionMode(s);
+  if (!poolUI.animationId) {
+    poolUI.displayBalls = s.balls;
+    drawPool();
+  }
+  return true;
+};
 
 function renderPool(body, s) {
+  cleanupPoolListeners();
   const wrap = document.createElement("div");
   wrap.className = "pool-wrap";
 
-  const info = document.createElement("div");
-  info.className = "pool-info";
-  for (const p of s.players) {
-    const el = document.createElement("div");
-    el.className = (p === state.username ? "me" : "opp") + (p === s.current ? " active" : "");
-    let group = s.assignments[p] || "open";
-    el.textContent = `${p} (${group})`;
-    info.appendChild(el);
+  // Scoreboard ----------------------------------------------------------
+  const sb = document.createElement("div");
+  sb.className = "pool-scoreboard";
+  const me = state.username;
+  const left = s.players[0];
+  const right = s.players.length > 1 ? s.players[1] : null;
+  const lp = makePoolPlayerCard(left, "left", s);
+  sb.appendChild(lp);
+  const vs = document.createElement("div");
+  vs.className = "pool-vs";
+  vs.textContent = "VS";
+  sb.appendChild(vs);
+  if (right) {
+    const rp = makePoolPlayerCard(right, "right", s);
+    sb.appendChild(rp);
   }
-  wrap.appendChild(info);
+  wrap.appendChild(sb);
 
+  // Stage (table + canvas) ---------------------------------------------
+  const stage = document.createElement("div");
+  stage.className = "pool-stage";
   const cw = document.createElement("div");
   cw.className = "pool-canvas-wrap";
   const canvas = document.createElement("canvas");
   canvas.className = "pool-canvas";
-  canvas.width = s.table.w;
-  canvas.height = s.table.h;
-  canvas.style.maxWidth = "100%";
-  canvas.style.height = "auto";
   cw.appendChild(canvas);
-  wrap.appendChild(cw);
+  stage.appendChild(cw);
+  wrap.appendChild(stage);
+
+  // Banner --------------------------------------------------------------
+  const banner = document.createElement("div");
+  banner.className = "pool-banner";
+  wrap.appendChild(banner);
+  const hint = document.createElement("div");
+  hint.className = "pool-hint";
+  wrap.appendChild(hint);
+
   body.appendChild(wrap);
 
+  poolUI.wrap = wrap;
   poolUI.canvas = canvas;
   poolUI.ctx = canvas.getContext("2d");
+  poolUI.banner = banner;
+  poolUI.hint = hint;
+  poolUI.state = s;
+  poolUI.lastShotKey = null;
+  poolUI.aim = null;
+  poolUI.hover = null;
+  poolUI.aiming = false;
+  poolUI.ghostCue = null;
+  poolUI.animationId = null;
+  poolUI.animationFrames = null;
+  poolUI.displayBalls = s.balls;
 
-  // animate last shot if new
-  const sig = s.last_shot_frames && s.last_shot_frames.length ? JSON.stringify(s.last_shot_frames[0]) + s.last_shot_frames.length : null;
-  if (sig && sig !== poolUI.lastFrameSig) {
-    poolUI.lastFrameSig = sig;
-    animatePoolFrames(s, s.last_shot_frames);
+  // HiDPI sizing & resize
+  setupPoolCanvasSize();
+  if (poolUI.resizeObs) poolUI.resizeObs.disconnect();
+  poolUI.resizeObs = new ResizeObserver(() => {
+    setupPoolCanvasSize();
+    drawPool();
+  });
+  poolUI.resizeObs.observe(cw);
+
+  installPoolPointerHandlers();
+  poolUI.myTurn = s.current === state.username && !s.ended;
+  updatePoolScoreboard(s);
+  updatePoolBanner(s);
+
+  if (s.last_shot_frames && s.last_shot_frames.length) {
+    poolUI.lastShotKey = poolShotKey(s);
+    runShotAnimation(s.last_shot_frames);
   } else {
-    drawPool(s, s.balls);
+    drawPool();
   }
+  poolUpdateInteractionMode(s);
+}
 
-  const myTurn = s.current === state.username && !s.ended && !poolUI.animation;
-  if (myTurn) {
+function makePoolPlayerCard(name, side, s) {
+  const card = document.createElement("div");
+  card.className = "pool-player " + side;
+  card.dataset.player = name;
+  if (name === s.current && !s.ended) card.classList.add("active");
+
+  const top = document.createElement("div");
+  top.className = "top";
+  const dot = document.createElement("span");
+  dot.className = "turn-dot";
+  const nm = document.createElement("span");
+  nm.className = "name";
+  nm.textContent = name + (name === state.username ? " (you)" : "");
+  const grp = document.createElement("span");
+  grp.className = "group";
+  grp.textContent = "OPEN";
+  top.appendChild(dot);
+  top.appendChild(nm);
+  top.appendChild(grp);
+  card.appendChild(top);
+
+  const tray = document.createElement("div");
+  tray.className = "tray";
+  card.appendChild(tray);
+
+  if (side === "left") { poolUI.scoreboard.left = card; poolUI.trays.left = tray; }
+  else { poolUI.scoreboard.right = card; poolUI.trays.right = tray; }
+  return card;
+}
+
+function updatePoolScoreboard(s) {
+  for (const side of ["left", "right"]) {
+    const card = poolUI.scoreboard[side];
+    if (!card) continue;
+    const name = card.dataset.player;
+    card.classList.toggle("active", name === s.current && !s.ended);
+    const grp = card.querySelector(".group");
+    const myGroup = s.assignments[name];
+    grp.className = "group " + (myGroup || "");
+    grp.textContent = myGroup ? myGroup.toUpperCase() + "S" : "OPEN";
+    const tray = side === "left" ? poolUI.trays.left : poolUI.trays.right;
+    tray.innerHTML = "";
+    if (myGroup) {
+      const ids = myGroup === "solid"
+        ? (s.pocketed_solids || [])
+        : (s.pocketed_stripes || []);
+      for (const id of ids) tray.appendChild(makeTrayBall(id));
+    }
+  }
+}
+
+function makeTrayBall(id) {
+  const div = document.createElement("div");
+  div.className = "pool-tray-ball" + (id >= 9 && id <= 15 ? " stripe" : "") + (id === 8 ? " eight" : "");
+  if (id >= 9 && id <= 15) div.style.color = POOL_BALL_COLORS[id];
+  if (id !== 0) {
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = id;
+    div.appendChild(num);
+  }
+  return div;
+}
+
+function updatePoolBanner(s) {
+  if (!poolUI.banner) return;
+  poolUI.banner.classList.remove("foul", "you");
+  let text = s.last_event || "";
+  if (s.ended) {
+    text = s.winner
+      ? `🏆 ${s.winner} wins. ${s.result_text || ""}`
+      : (s.result_text || "Game over");
+    poolUI.banner.classList.add("you");
+  } else if (s.last_foul) {
+    poolUI.banner.classList.add("foul");
+  } else if (s.current === state.username) {
+    poolUI.banner.classList.add("you");
+  }
+  poolUI.banner.textContent = text;
+
+  // hint line beneath
+  let hint = "";
+  if (!s.ended && s.current === state.username) {
     if (s.cue_in_hand) {
-      const banner = document.createElement("div");
-      banner.className = "game-banner";
-      banner.textContent = "Click on the table to place the cue ball.";
-      wrap.appendChild(banner);
-      canvas.addEventListener("pointerdown", (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
-        sendGameAction({ kind: "place_cue", x, y });
-      });
+      hint = s.kitchen_only
+        ? "Place the cue ball in the highlighted area, then drag from it to shoot."
+        : "Place the cue ball anywhere on the table, then drag from it to shoot.";
     } else {
-      const banner = document.createElement("div");
-      banner.className = "game-banner";
-      banner.textContent = "Drag from the cue ball to aim. Distance = power.";
-      wrap.appendChild(banner);
-      setupPoolAim(canvas, s);
+      hint = "Drag from the cue ball — the further you pull back, the more power.";
     }
+  } else if (!s.ended) {
+    hint = `Waiting for ${s.current}…`;
+  }
+  poolUI.hint.textContent = hint;
+}
+
+function poolShotKey(s) {
+  if (!s.last_shot_frames || !s.last_shot_frames.length) return null;
+  return `${s.shot_no}|${s.last_shot_frames.length}`;
+}
+
+function maybeAnimateLastShot(s) {
+  const key = poolShotKey(s);
+  if (key && key !== poolUI.lastShotKey) {
+    poolUI.lastShotKey = key;
+    runShotAnimation(s.last_shot_frames);
   }
 }
 
-function drawPool(s, balls) {
-  const ctx = poolUI.ctx;
-  ctx.clearRect(0, 0, s.table.w, s.table.h);
-  ctx.fillStyle = "#2d6a4f";
-  ctx.fillRect(0, 0, s.table.w, s.table.h);
-  // pockets
-  ctx.fillStyle = "#000";
-  for (const [px, py] of s.table.pockets) {
-    ctx.beginPath(); ctx.arc(px, py, s.table.pocket_r, 0, Math.PI*2); ctx.fill();
-  }
-  // balls
-  for (const b of balls) {
-    if (!b.in) continue;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, s.table.ball_r, 0, Math.PI*2);
-    ctx.fillStyle = ballColor(b);
-    ctx.fill();
-    ctx.lineWidth = 1; ctx.strokeStyle = "#000"; ctx.stroke();
-    // stripe band
-    if (b.id >= 9 && b.id <= 15) {
-      ctx.beginPath();
-      ctx.fillStyle = "white";
-      ctx.arc(b.x, b.y, s.table.ball_r * 0.55, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = ballColor(b);
-      ctx.fillRect(b.x - s.table.ball_r * 0.65, b.y - 3, s.table.ball_r * 1.3, 6);
-    }
-    // number
-    if (b.id !== 0 && (b.id < 9 || b.id > 15)) {
-      ctx.fillStyle = "white";
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, s.table.ball_r * 0.4, 0, Math.PI*2);
-      ctx.fill();
-    }
-    if (b.id !== 0) {
-      ctx.fillStyle = b.id === 8 ? "white" : "black";
-      ctx.font = "bold 10px sans-serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(String(b.id), b.x, b.y);
-    }
-  }
-  // aim line
-  if (poolUI.aim) {
-    const cue = balls.find((b) => b.id === 0);
-    if (cue && cue.in) {
-      ctx.strokeStyle = "rgba(255,255,255,0.7)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cue.x, cue.y);
-      ctx.lineTo(cue.x - poolUI.aim.dx, cue.y - poolUI.aim.dy);
-      ctx.stroke();
-    }
-  }
-}
-
-function ballColor(b) {
-  if (b.id === 0) return "#fff";
-  if (b.id === 8) return "#222";
-  const solids = { 1:"#f4d03f", 2:"#3498db", 3:"#e74c3c", 4:"#8e44ad", 5:"#e67e22", 6:"#27ae60", 7:"#8b0000" };
-  const stripes = { 9:"#f4d03f",10:"#3498db",11:"#e74c3c",12:"#8e44ad",13:"#e67e22",14:"#27ae60",15:"#8b0000" };
-  return (solids[b.id] || stripes[b.id] || "#fff");
-}
-
-function animatePoolFrames(s, frames) {
-  cancelAnimationFrame(poolUI.animation);
-  let i = 0;
+function runShotAnimation(frames) {
+  if (poolUI.animationId) cancelAnimationFrame(poolUI.animationId);
+  poolUI.aim = null;
+  poolUI.hover = null;
+  poolUI.aiming = false;
+  poolUI.animationFrames = frames;
+  poolUI.animationIdx = 0;
+  // smooth: render 1 frame per requestAnimationFrame
   function step() {
-    if (i >= frames.length) {
-      poolUI.animation = null;
-      drawPool(s, s.balls);
+    if (poolUI.animationIdx >= poolUI.animationFrames.length) {
+      poolUI.animationId = null;
+      poolUI.animationFrames = null;
+      poolUI.displayBalls = poolUI.state.balls;
+      drawPool();
+      poolUpdateInteractionMode(poolUI.state);
       return;
     }
-    drawPool(s, frames[i]);
-    i++;
-    poolUI.animation = requestAnimationFrame(step);
+    poolUI.displayBalls = poolUI.animationFrames[poolUI.animationIdx];
+    poolUI.animationIdx++;
+    drawPool();
+    poolUI.animationId = requestAnimationFrame(step);
   }
-  step();
+  poolUI.animationId = requestAnimationFrame(step);
 }
 
-function setupPoolAim(canvas, s) {
-  let aiming = false;
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (e.clientX - rect.left) * (canvas.width / rect.width),
-      y: (e.clientY - rect.top)  * (canvas.height / rect.height),
-    };
+function poolUpdateInteractionMode(s) {
+  const c = poolUI.canvas;
+  if (!c) return;
+  c.classList.remove("placing", "aiming");
+  if (poolUI.animationId || s.ended || s.current !== state.username) return;
+  if (s.cue_in_hand) c.classList.add("placing");
+  else c.classList.add("aiming");
+}
+
+// ---------------------------------------------------------------------------
+// Sizing
+// ---------------------------------------------------------------------------
+function setupPoolCanvasSize() {
+  if (!poolUI.canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = poolUI.canvas.getBoundingClientRect();
+  poolUI.cssW = rect.width;
+  poolUI.cssH = rect.height;
+  poolUI.canvas.width  = Math.max(1, Math.round(rect.width  * dpr));
+  poolUI.canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  // we draw in TABLE coordinates, scaling to css size
+}
+
+function tableToCanvas() {
+  if (!poolUI.state) return { sx: 1, sy: 1 };
+  const dpr = window.devicePixelRatio || 1;
+  return {
+    sx: (poolUI.cssW * dpr) / poolUI.state.table.w,
+    sy: (poolUI.cssH * dpr) / poolUI.state.table.h,
+  };
+}
+
+function pointerToTable(e) {
+  if (!poolUI.canvas || !poolUI.state) return null;
+  const rect = poolUI.canvas.getBoundingClientRect();
+  const cx = (e.clientX - rect.left) / rect.width;
+  const cy = (e.clientY - rect.top) / rect.height;
+  return { x: cx * poolUI.state.table.w, y: cy * poolUI.state.table.h };
+}
+
+// ---------------------------------------------------------------------------
+// Drawing
+// ---------------------------------------------------------------------------
+function drawPool() {
+  const ctx = poolUI.ctx;
+  const s = poolUI.state;
+  if (!ctx || !s) return;
+  const balls = poolUI.displayBalls || s.balls;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = poolUI.cssW;
+  const cssH = poolUI.cssH;
+
+  // reset transform
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, poolUI.canvas.width, poolUI.canvas.height);
+
+  // scale so we draw in table coords
+  const scale = (cssW * dpr) / s.table.w;
+  ctx.scale(scale, scale);
+
+  drawFelt(ctx, s);
+  drawPockets(ctx, s);
+  if (s.cue_in_hand && poolUI.myTurn) drawPlacementZone(ctx, s);
+  drawBalls(ctx, s, balls);
+  drawAimAndCue(ctx, s, balls);
+  drawGhostCue(ctx, s);
+}
+
+function drawFelt(ctx, s) {
+  const grad = ctx.createRadialGradient(
+    s.table.w / 2, s.table.h / 2, 60,
+    s.table.w / 2, s.table.h / 2, Math.max(s.table.w, s.table.h) * 0.7
+  );
+  grad.addColorStop(0, "#2f8a52");
+  grad.addColorStop(1, "#155835");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, s.table.w, s.table.h);
+
+  // subtle felt texture (diagonal lines)
+  ctx.save();
+  ctx.globalAlpha = 0.04;
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 0.5;
+  for (let x = -s.table.h; x < s.table.w; x += 6) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + s.table.h, s.table.h);
+    ctx.stroke();
   }
-  function onDown(e) {
-    if (poolUI.animation) return;
-    const cue = s.balls.find((b) => b.id === 0);
-    if (!cue || !cue.in) return;
-    const p = getPos(e);
-    const dx = p.x - cue.x, dy = p.y - cue.y;
-    if (dx*dx + dy*dy > (s.table.ball_r * 4) ** 2) return;
-    aiming = true;
-    poolUI.aim = { dx: 0, dy: 0 };
-    e.preventDefault();
+  ctx.restore();
+
+  // head string (kitchen line) — only show during break placement
+  if (s.cue_in_hand && s.kitchen_only && poolUI.myTurn) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.setLineDash([6, 5]);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(s.table.kitchen_x, 0);
+    ctx.lineTo(s.table.kitchen_x, s.table.h);
+    ctx.stroke();
+    ctx.restore();
   }
-  function onMove(e) {
-    if (!aiming) return;
-    const cue = s.balls.find((b) => b.id === 0);
-    const p = getPos(e);
-    poolUI.aim = { dx: cue.x - p.x, dy: cue.y - p.y };
-    drawPool(s, s.balls);
+}
+
+function drawPockets(ctx, s) {
+  for (const [px, py] of s.table.pockets) {
+    // gold rim
+    ctx.beginPath();
+    ctx.arc(px, py, s.table.pocket_r + 2, 0, Math.PI * 2);
+    ctx.fillStyle = "#3d2310";
+    ctx.fill();
+    // pocket
+    ctx.beginPath();
+    ctx.arc(px, py, s.table.pocket_r, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(px, py, 1, px, py, s.table.pocket_r);
+    g.addColorStop(0, "#000");
+    g.addColorStop(1, "#1a0d05");
+    ctx.fillStyle = g;
+    ctx.fill();
   }
-  function onUp(e) {
-    if (!aiming) return;
-    aiming = false;
-    if (!poolUI.aim) return;
-    const scale = 0.18;
-    const dx = poolUI.aim.dx * scale;
-    const dy = poolUI.aim.dy * scale;
-    poolUI.aim = null;
-    if (Math.hypot(dx, dy) < 0.5) return;
-    sendGameAction({ kind: "shoot", dx, dy });
+}
+
+function drawPlacementZone(ctx, s) {
+  ctx.save();
+  if (s.kitchen_only) {
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillRect(0, 0, s.table.kitchen_x, s.table.h);
+  } else {
+    ctx.fillStyle = "rgba(255,200,80,0.04)";
+    ctx.fillRect(0, 0, s.table.w, s.table.h);
   }
-  canvas.addEventListener("pointerdown", onDown);
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onUp);
+  ctx.restore();
+}
+
+function drawBalls(ctx, s, balls) {
+  for (const b of balls) {
+    if (!b.in) continue;
+    drawBall(ctx, b, b.x, b.y, s.table.ball_r);
+  }
+}
+
+function drawBall(ctx, b, x, y, r) {
+  ctx.save();
+  // shadow
+  ctx.beginPath();
+  ctx.arc(x + 1.2, y + 2.2, r * 0.95, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.fill();
+
+  const baseColor = POOL_BALL_COLORS[b.id] || "#fff";
+
+  // base body
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  if (b.id >= 9 && b.id <= 15) {
+    ctx.fillStyle = "#fafafa";
+  } else {
+    ctx.fillStyle = baseColor;
+  }
+  ctx.fill();
+
+  // stripe band
+  if (b.id >= 9 && b.id <= 15) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r - 0.4, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = baseColor;
+    ctx.fillRect(x - r, y - r * 0.55, r * 2, r * 1.1);
+    ctx.restore();
+  }
+
+  // white circle for number (solids/stripes have white badge; cue and 8 don't)
+  if (b.id !== 0) {
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.45, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.fillStyle = "#111";
+    ctx.font = `bold ${Math.round(r * 0.7)}px -apple-system, system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(b.id), x, y + 0.5);
+  }
+
+  // outline
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(0,0,0,0.55)";
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  // glossy highlight
+  const hl = ctx.createRadialGradient(
+    x - r * 0.45, y - r * 0.5, 0.5,
+    x - r * 0.45, y - r * 0.5, r * 0.9
+  );
+  hl.addColorStop(0, "rgba(255,255,255,0.85)");
+  hl.addColorStop(0.4, "rgba(255,255,255,0.15)");
+  hl.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = hl;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawGhostCue(ctx, s) {
+  if (!poolUI.ghostCue || !s.cue_in_hand || !poolUI.myTurn) return;
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  drawBall(ctx, { id: 0 }, poolUI.ghostCue.x, poolUI.ghostCue.y, s.table.ball_r);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Aim line, projection and cue stick
+// ---------------------------------------------------------------------------
+function findCueBall(balls) {
+  return balls.find((b) => b.id === 0 && b.in);
+}
+
+// Predict where the cue ball would first collide along a unit direction (dx,dy).
+// Returns { tx, ty, hitId, hitX, hitY } where (tx,ty) is the cue's center at impact,
+// or { tx, ty, hitId: null } if it stops at a cushion.
+function predictAim(s, balls, originX, originY, dirX, dirY) {
+  const r = s.table.ball_r;
+  // distance until cushion contact
+  const W = s.table.w, H = s.table.h;
+  let tWall = Infinity;
+  if (dirX > 0) tWall = Math.min(tWall, (W - r - originX) / dirX);
+  if (dirX < 0) tWall = Math.min(tWall, (r - originX) / dirX);
+  if (dirY > 0) tWall = Math.min(tWall, (H - r - originY) / dirY);
+  if (dirY < 0) tWall = Math.min(tWall, (r - originY) / dirY);
+  if (tWall < 0) tWall = 0;
+
+  // find earliest ball-ball collision
+  let bestT = tWall;
+  let bestBall = null;
+  for (const b of balls) {
+    if (!b.in || b.id === 0) continue;
+    // solve: |(origin + t*dir) - b| = 2r
+    const ox = originX - b.x;
+    const oy = originY - b.y;
+    const A = dirX * dirX + dirY * dirY; // 1
+    const B = 2 * (ox * dirX + oy * dirY);
+    const C = ox * ox + oy * oy - (2 * r) * (2 * r);
+    const disc = B * B - 4 * A * C;
+    if (disc <= 0) continue;
+    const sq = Math.sqrt(disc);
+    const t1 = (-B - sq) / (2 * A);
+    if (t1 > 0.001 && t1 < bestT) {
+      bestT = t1;
+      bestBall = b;
+    }
+  }
+  return {
+    tx: originX + dirX * bestT,
+    ty: originY + dirY * bestT,
+    hitBall: bestBall,
+    distance: bestT,
+  };
+}
+
+function drawAimAndCue(ctx, s, balls) {
+  if (poolUI.animationId) return;
+  if (!poolUI.myTurn) return;
+  const cue = findCueBall(balls);
+  if (!cue) return;
+
+  // Aim model: ball flies from cue ball toward the pointer.
+  // Pull-back distance (pointer distance from cue) drives power.
+  let dirX = 0, dirY = 0, power = 0, showCueStick = false;
+  if (poolUI.aiming && poolUI.aim) {
+    const m = Math.hypot(poolUI.aim.dragDx, poolUI.aim.dragDy);
+    if (m > 0.5) {
+      dirX = poolUI.aim.dragDx / m;
+      dirY = poolUI.aim.dragDy / m;
+      power = poolUI.aim.power;
+      showCueStick = true;
+    }
+  } else if (poolUI.hover && !s.cue_in_hand && !s.ended) {
+    const dx = poolUI.hover.x - cue.x;
+    const dy = poolUI.hover.y - cue.y;
+    const m = Math.hypot(dx, dy);
+    if (m > 1) { dirX = dx / m; dirY = dy / m; }
+    showCueStick = false;
+  }
+
+  if (dirX === 0 && dirY === 0) return;
+  if (s.cue_in_hand) return;
+
+  const pred = predictAim(s, balls, cue.x, cue.y, dirX, dirY);
+
+  // Aim line (dashed)
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(cue.x, cue.y);
+  ctx.lineTo(pred.tx, pred.ty);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Ghost cue at first impact
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.arc(pred.tx, pred.ty, s.table.ball_r, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.9)";
+  ctx.stroke();
+  ctx.restore();
+
+  // If we hit a ball, show the predicted target deflection direction
+  if (pred.hitBall) {
+    const tb = pred.hitBall;
+    const nx = tb.x - pred.tx;
+    const ny = tb.y - pred.ty;
+    const nm = Math.hypot(nx, ny) || 1;
+    const ux = nx / nm, uy = ny / nm;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,235,150,0.7)";
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(tb.x, tb.y);
+    ctx.lineTo(tb.x + ux * 60, tb.y + uy * 60);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Cue stick when actively aiming (drawn behind the cue ball, opposite the aim direction)
+  if (showCueStick) {
+    drawCueStick(ctx, s, cue, dirX, dirY, power);
+  }
+}
+
+function drawCueStick(ctx, s, cue, dirX, dirY, power) {
+  const r = s.table.ball_r;
+  // cue stick extends backward from cue ball, pulled back proportional to power
+  const pullback = r * 0.6 + power * r * 7;     // gap between cue tip and ball
+  const stickLen = r * 14;
+  const tipX = cue.x - dirX * (r + pullback);
+  const tipY = cue.y - dirY * (r + pullback);
+  const buttX = tipX - dirX * stickLen;
+  const buttY = tipY - dirY * stickLen;
+
+  // perpendicular for thickness
+  const px = -dirY, py = dirX;
+  const tipW = r * 0.18;
+  const buttW = r * 0.45;
+
+  ctx.save();
+  // shaft (gradient)
+  const grad = ctx.createLinearGradient(tipX, tipY, buttX, buttY);
+  grad.addColorStop(0, "#f4e1c1");
+  grad.addColorStop(0.4, "#d8b48a");
+  grad.addColorStop(1, "#5d3613");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(tipX + px * tipW, tipY + py * tipW);
+  ctx.lineTo(tipX - px * tipW, tipY - py * tipW);
+  ctx.lineTo(buttX - px * buttW, buttY - py * buttW);
+  ctx.lineTo(buttX + px * buttW, buttY + py * buttW);
+  ctx.closePath();
+  ctx.fill();
+  // tip (blue chalk)
+  ctx.fillStyle = "#1d4ed8";
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, tipW * 1.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Power meter as a line segment near the butt
+  ctx.save();
+  const meterLen = r * 7;
+  const mx0 = buttX + dirX * (r * 1.5);
+  const my0 = buttY + dirY * (r * 1.5);
+  const mx1 = mx0 + dirX * meterLen * power;
+  const my1 = my0 + dirY * meterLen * power;
+  ctx.lineWidth = r * 0.5;
+  ctx.lineCap = "round";
+  // background track
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.moveTo(mx0, my0);
+  ctx.lineTo(mx0 + dirX * meterLen, my0 + dirY * meterLen);
+  ctx.stroke();
+  // fill
+  const col = power < 0.5
+    ? "#4ade80"
+    : power < 0.8 ? "#facc15" : "#f87171";
+  ctx.strokeStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(mx0, my0);
+  ctx.lineTo(mx1, my1);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// Pointer interactions
+// ---------------------------------------------------------------------------
+function installPoolPointerHandlers() {
+  cleanupPoolListeners();
+  const c = poolUI.canvas;
+  if (!c) return;
+  const onDown = (e) => onPoolPointerDown(e);
+  const onMove = (e) => onPoolPointerMove(e);
+  const onUp = (e) => onPoolPointerUp(e);
+  const onLeave = (e) => onPoolPointerLeave(e);
+  c.addEventListener("pointerdown", onDown);
+  c.addEventListener("pointermove", onMove);
+  c.addEventListener("pointerup", onUp);
+  c.addEventListener("pointercancel", onUp);
+  c.addEventListener("pointerleave", onLeave);
+  c.addEventListener("contextmenu", (e) => e.preventDefault());
+  poolUI.listeners.push(
+    { el: c, type: "pointerdown", fn: onDown },
+    { el: c, type: "pointermove", fn: onMove },
+    { el: c, type: "pointerup", fn: onUp },
+    { el: c, type: "pointercancel", fn: onUp },
+    { el: c, type: "pointerleave", fn: onLeave },
+  );
+}
+
+function cleanupPoolListeners() {
+  if (poolUI.listeners && poolUI.listeners.length) {
+    for (const l of poolUI.listeners) l.el.removeEventListener(l.type, l.fn);
+  }
+  poolUI.listeners = [];
+  if (poolUI.resizeObs) { poolUI.resizeObs.disconnect(); poolUI.resizeObs = null; }
+  if (poolUI.animationId) cancelAnimationFrame(poolUI.animationId);
+  poolUI.animationId = null;
+  poolUI.aim = null;
+  poolUI.hover = null;
+  poolUI.aiming = false;
+  poolUI.ghostCue = null;
+}
+
+function onPoolPointerDown(e) {
+  if (!poolUI.state) return;
+  if (!poolUI.myTurn || poolUI.animationId) return;
+  e.preventDefault();
+  const p = pointerToTable(e);
+  if (!p) return;
+  const s = poolUI.state;
+
+  if (s.cue_in_hand) {
+    const placed = clampPlacement(s, p.x, p.y);
+    if (placed) {
+      sendGameAction({ kind: "place_cue", x: placed.x, y: placed.y });
+    }
+    return;
+  }
+
+  // Aim mode: aim is always cue ball -> current pointer.
+  // The pointer's distance from the cue ball drives power.
+  poolUI.canvas.setPointerCapture && poolUI.canvas.setPointerCapture(e.pointerId);
+  poolUI.aiming = true;
+  poolUI.hover = null;
+  updateAimFromPointer(p);
+  drawPool();
+}
+
+function updateAimFromPointer(p) {
+  const s = poolUI.state;
+  const cue = findCueBall(s.balls);
+  if (!cue) return;
+  const dx = p.x - cue.x;
+  const dy = p.y - cue.y;
+  const dist = Math.hypot(dx, dy);
+  // Min radius: must drag past the cue ball itself before any power applies.
+  const minDist = s.table.ball_r * 1.5;
+  const POWER_FULL_DIST = Math.min(s.table.w, s.table.h * 1.4) * 0.55;
+  const t = Math.max(0, dist - minDist) / Math.max(1, POWER_FULL_DIST - minDist);
+  const power = Math.max(0, Math.min(1, t));
+  poolUI.aim = {
+    pointerX: p.x,
+    pointerY: p.y,
+    anchorX: cue.x,
+    anchorY: cue.y,
+    dragDx: dx,
+    dragDy: dy,
+    power: power,
+  };
+}
+
+function onPoolPointerMove(e) {
+  if (!poolUI.state) return;
+  const p = pointerToTable(e);
+  if (!p) return;
+  const s = poolUI.state;
+
+  if (poolUI.aiming) {
+    updateAimFromPointer(p);
+    drawPool();
+    return;
+  }
+
+  if (s.cue_in_hand && poolUI.myTurn) {
+    poolUI.ghostCue = clampPlacement(s, p.x, p.y);
+    drawPool();
+    return;
+  }
+
+  if (poolUI.myTurn && !poolUI.animationId) {
+    poolUI.hover = p;
+    drawPool();
+  }
+}
+
+function onPoolPointerUp(e) {
+  if (!poolUI.aiming || !poolUI.aim) return;
+  const s = poolUI.state;
+  poolUI.aiming = false;
+  const cue = findCueBall(s.balls);
+  const dx = poolUI.aim.dragDx;
+  const dy = poolUI.aim.dragDy;
+  const power = poolUI.aim.power;
+  poolUI.aim = null;
+  if (!cue || power < 0.04) {
+    drawPool();
+    return;
+  }
+  const m = Math.hypot(dx, dy);
+  if (m < 0.5) {
+    drawPool();
+    return;
+  }
+  const dirX = dx / m;
+  const dirY = dy / m;
+  const maxPower = s.table.max_power || 25;
+  const v = Math.max(power, 0.08) * maxPower;
+  sendGameAction({ kind: "shoot", dx: dirX * v, dy: dirY * v });
+}
+
+function onPoolPointerLeave(e) {
+  poolUI.hover = null;
+  if (!poolUI.aiming) poolUI.ghostCue = null;
+  drawPool();
+}
+
+function clampPlacement(s, x, y) {
+  const r = s.table.ball_r;
+  let nx = Math.max(r + 1, Math.min(s.table.w - r - 1, x));
+  let ny = Math.max(r + 1, Math.min(s.table.h - r - 1, y));
+  if (s.kitchen_only) nx = Math.min(nx, s.table.kitchen_x - r - 0.5);
+  // overlap check
+  for (const b of s.balls) {
+    if (!b.in || b.id === 0) continue;
+    const dx = b.x - nx, dy = b.y - ny;
+    if (dx * dx + dy * dy < (2 * r + 0.5) ** 2) return null;
+  }
+  return { x: nx, y: ny };
 }
 
 //==============================================================

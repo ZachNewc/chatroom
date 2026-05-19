@@ -93,6 +93,8 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE messages ADD COLUMN images TEXT NOT NULL DEFAULT '[]'")
         if "metadata" not in msg_cols:
             await db.execute("ALTER TABLE messages ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
+        if "reply_to" not in msg_cols:
+            await db.execute("ALTER TABLE messages ADD COLUMN reply_to INTEGER")
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS reactions (
@@ -220,8 +222,47 @@ async def get_reactions_bulk(message_ids):
     return out
 
 
-def _serialize_message(row, reactions):
-    mid, username, content, created_at, deleted, images_json, metadata_json = row
+REPLY_PREVIEW_LEN = 120
+
+
+def _build_reply_preview(row):
+    """row: (id, username, content, deleted, images_json) of the parent message."""
+    pid, pusername, pcontent, pdeleted, pimages_json = row
+    is_deleted = bool(pdeleted)
+    try:
+        pimages = json.loads(pimages_json) if pimages_json else []
+        if not isinstance(pimages, list):
+            pimages = []
+    except json.JSONDecodeError:
+        pimages = []
+    snippet = "" if is_deleted else (pcontent or "")
+    if len(snippet) > REPLY_PREVIEW_LEN:
+        snippet = snippet[:REPLY_PREVIEW_LEN].rstrip() + "…"
+    return {
+        "id": pid,
+        "username": pusername,
+        "content": snippet,
+        "deleted": is_deleted,
+        "has_image": (not is_deleted) and bool(pimages),
+    }
+
+
+async def get_reply_previews_bulk(reply_ids):
+    """Given a list of parent message ids, return {id: preview_dict}."""
+    ids = [i for i in reply_ids if isinstance(i, int)]
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    rows = await db_fetchall(
+        f"SELECT id, username, content, deleted, images FROM messages "
+        f"WHERE id IN ({placeholders})",
+        tuple(ids),
+    )
+    return {r[0]: _build_reply_preview(r) for r in rows}
+
+
+def _serialize_message(row, reactions, reply_preview=None):
+    mid, username, content, created_at, deleted, images_json, metadata_json, reply_to = row
     is_deleted = bool(deleted)
     try:
         images = json.loads(images_json) if images_json else []
@@ -244,40 +285,51 @@ def _serialize_message(row, reactions):
         "deleted": is_deleted,
         "images": [] if is_deleted else images,
         "metadata": {} if is_deleted else metadata,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
     }
 
 
 async def get_messages_page(before_id=None, limit=HISTORY_PAGE_SIZE):
     if before_id is None:
         rows = await db_fetchall(
-            "SELECT id, username, content, created_at, deleted, images, metadata FROM messages "
-            "ORDER BY id DESC LIMIT ?",
+            "SELECT id, username, content, created_at, deleted, images, metadata, reply_to "
+            "FROM messages ORDER BY id DESC LIMIT ?",
             (limit + 1,),
         )
     else:
         rows = await db_fetchall(
-            "SELECT id, username, content, created_at, deleted, images, metadata FROM messages "
-            "WHERE id < ? ORDER BY id DESC LIMIT ?",
+            "SELECT id, username, content, created_at, deleted, images, metadata, reply_to "
+            "FROM messages WHERE id < ? ORDER BY id DESC LIMIT ?",
             (before_id, limit + 1),
         )
     has_more = len(rows) > limit
     rows = rows[:limit]
     ids = [r[0] for r in rows]
     rx = await get_reactions_bulk(ids)
-    msgs = [_serialize_message(r, rx.get(r[0], {})) for r in rows]
+    reply_ids = [r[7] for r in rows if r[7] is not None]
+    rp = await get_reply_previews_bulk(reply_ids)
+    msgs = [
+        _serialize_message(r, rx.get(r[0], {}), rp.get(r[7]) if r[7] is not None else None)
+        for r in rows
+    ]
     msgs.reverse()
     return msgs, has_more
 
 
-async def insert_message(username: str, content: str, images=None, metadata=None):
+async def insert_message(username: str, content: str, images=None, metadata=None, reply_to=None):
     created = now_iso()
     images = images or []
     metadata = metadata or {}
     mid = await db_execute(
-        "INSERT INTO messages (username, content, created_at, images, metadata) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (username, content, created, json.dumps(images), json.dumps(metadata)),
+        "INSERT INTO messages (username, content, created_at, images, metadata, reply_to) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (username, content, created, json.dumps(images), json.dumps(metadata), reply_to),
     )
+    reply_preview = None
+    if reply_to is not None:
+        previews = await get_reply_previews_bulk([reply_to])
+        reply_preview = previews.get(reply_to)
     return {
         "id": mid,
         "username": username,
@@ -287,6 +339,8 @@ async def insert_message(username: str, content: str, images=None, metadata=None
         "deleted": False,
         "images": images,
         "metadata": metadata,
+        "reply_to": reply_to,
+        "reply_preview": reply_preview,
     }
 
 
@@ -612,7 +666,19 @@ async def handle_send_message(ws, data) -> None:
     if not content and not saved_urls:
         return
 
-    msg = await insert_message(info["username"], content, saved_urls)
+    reply_to = data.get("reply_to")
+    try:
+        reply_to = int(reply_to) if reply_to is not None else None
+    except (TypeError, ValueError):
+        reply_to = None
+    if reply_to is not None:
+        parent = await db_fetchone(
+            "SELECT 1 FROM messages WHERE id = ? AND deleted = 0", (reply_to,)
+        )
+        if not parent:
+            reply_to = None
+
+    msg = await insert_message(info["username"], content, saved_urls, reply_to=reply_to)
     await broadcast({"type": "message", "message": msg})
 
 
@@ -1800,43 +1866,65 @@ class UnoGame(Game):
 
 
 # ---------------------------------------------------------------------------
-# 8-BALL POOL (simple physics)
+# 8-BALL POOL (GamePigeon-style)
 # ---------------------------------------------------------------------------
 TABLE_W = 800.0
 TABLE_H = 400.0
 BALL_R = 11.0
-POCKET_R = 22.0
-FRICTION = 0.985
-MIN_VEL = 0.08
-MAX_SHOT_POWER = 25.0
+POCKET_R = 20.0
+KITCHEN_X = TABLE_W / 4.0           # head string: cue must be placed left of this on break
+FRICTION = 0.988
+MIN_VEL = 0.05
+MAX_SHOT_POWER = 28.0
+CUSHION_BOUNCE = 0.92
+COLLISION_DAMP = 0.985
+PHYS_STEPS_PER_FRAME = 3
+
 POCKETS = [
-    (POCKET_R * 0.6, POCKET_R * 0.6),
-    (TABLE_W / 2, POCKET_R * 0.45),
-    (TABLE_W - POCKET_R * 0.6, POCKET_R * 0.6),
-    (POCKET_R * 0.6, TABLE_H - POCKET_R * 0.6),
-    (TABLE_W / 2, TABLE_H - POCKET_R * 0.45),
-    (TABLE_W - POCKET_R * 0.6, TABLE_H - POCKET_R * 0.6),
+    (POCKET_R * 0.65, POCKET_R * 0.65),
+    (TABLE_W / 2,     POCKET_R * 0.50),
+    (TABLE_W - POCKET_R * 0.65, POCKET_R * 0.65),
+    (POCKET_R * 0.65, TABLE_H - POCKET_R * 0.65),
+    (TABLE_W / 2,     TABLE_H - POCKET_R * 0.50),
+    (TABLE_W - POCKET_R * 0.65, TABLE_H - POCKET_R * 0.65),
 ]
+
+SOLID_IDS = (1, 2, 3, 4, 5, 6, 7)
+STRIPE_IDS = (9, 10, 11, 12, 13, 14, 15)
+
+
+def _ball_group(ball_id: int) -> str | None:
+    if ball_id == 0: return "cue"
+    if ball_id == 8: return "eight"
+    if ball_id in SOLID_IDS: return "solid"
+    if ball_id in STRIPE_IDS: return "stripe"
+    return None
 
 
 def _rack_balls():
-    balls = []
-    # cue ball at left
-    balls.append({"id": 0, "x": TABLE_W * 0.25, "y": TABLE_H / 2, "vx": 0.0, "vy": 0.0, "in": True, "type": "cue"})
-    # 15 balls in triangle on right
-    nums = [1, 11, 2, 12, 8, 9, 3, 13, 4, 14, 5, 6, 15, 10, 7]
-    # standard 8 in middle of rack (row 2, col 2)
-    types = {1: "solid", 2: "solid", 3: "solid", 4: "solid", 5: "solid", 6: "solid", 7: "solid",
-             8: "eight", 9: "stripe", 10: "stripe", 11: "stripe", 12: "stripe", 13: "stripe", 14: "stripe", 15: "stripe"}
-    rack_x = TABLE_W * 0.7
+    """Standard 8-ball racking: 1 at apex, 8 in center of 3rd row, last row alternates,
+    corners of last row are different groups."""
+    balls = [{"id": 0, "x": TABLE_W * 0.22, "y": TABLE_H / 2,
+              "vx": 0.0, "vy": 0.0, "in": True, "type": "cue"}]
+    # Regulation rack arrangement (apex first, 8 in center, mixed row)
+    rack_layout = [
+        [1],
+        [9, 2],
+        [10, 8, 3],
+        [11, 4, 12, 5],
+        [6, 13, 7, 14, 15],
+    ]
+    types = {n: ("solid" if n in SOLID_IDS else "stripe" if n in STRIPE_IDS else "eight")
+             for n in range(1, 16)}
+    rack_x = TABLE_W * 0.72
     rack_y = TABLE_H / 2
-    i = 0
-    for col in range(5):
-        for row in range(col + 1):
-            n = nums[i]; i += 1
-            x = rack_x + col * BALL_R * 2 * 0.95
-            y = rack_y + (row - col / 2) * BALL_R * 2.05
-            balls.append({"id": n, "x": x, "y": y, "vx": 0.0, "vy": 0.0, "in": True, "type": types[n]})
+    spacing = BALL_R * 2.0 + 0.4   # almost touching
+    for col, row_ids in enumerate(rack_layout):
+        x = rack_x + col * (spacing * math.cos(math.pi / 6))
+        for row_i, n in enumerate(row_ids):
+            y = rack_y + (row_i - col / 2.0) * spacing
+            balls.append({"id": n, "x": x, "y": y, "vx": 0.0, "vy": 0.0,
+                          "in": True, "type": types[n]})
     return balls
 
 
@@ -1850,22 +1938,43 @@ class EightBallGame(Game):
         super().__init__(game_id, players)
         random.shuffle(self.players)
         self.balls = _rack_balls()
-        self.current_idx = 0           # whose turn
-        self.assignments: dict[str, str | None] = {p: None for p in self.players}  # "solid"/"stripe"/None
-        self.last_shot_frames = None
-        self.last_pocketed = []
-        self.foul = False
-        self.cue_in_hand = True        # initial placement; also after foul
+        self.current_idx = 0
+        self.assignments: dict[str, str | None] = {p: None for p in self.players}
+        self.last_shot_frames: list | None = None
+        self.last_pocketed: list[int] = []
+        self.cue_in_hand = True            # initial break or after foul
+        self.kitchen_only = True            # break: cue must be in left quarter
+        self.last_event: str = f"{self.players[0]} breaks. Place cue ball in the kitchen and shoot!"
+        self.last_foul: bool = False
+        self.shot_no = 0
 
     def public_state(self, viewer=None):
         base = super().public_state(viewer)
         base["balls"] = [dict(b) for b in self.balls]
-        base["table"] = {"w": TABLE_W, "h": TABLE_H, "ball_r": BALL_R, "pocket_r": POCKET_R, "pockets": POCKETS}
+        base["table"] = {
+            "w": TABLE_W, "h": TABLE_H,
+            "ball_r": BALL_R, "pocket_r": POCKET_R,
+            "pockets": POCKETS,
+            "kitchen_x": KITCHEN_X,
+            "max_power": MAX_SHOT_POWER,
+        }
         base["current"] = self.players[self.current_idx]
         base["assignments"] = dict(self.assignments)
         base["cue_in_hand"] = self.cue_in_hand
+        base["kitchen_only"] = self.kitchen_only
         base["last_shot_frames"] = self.last_shot_frames
         base["last_pocketed"] = list(self.last_pocketed)
+        base["last_event"] = self.last_event
+        base["last_foul"] = self.last_foul
+        base["shot_no"] = self.shot_no
+        # pocketed balls trays
+        base["pocketed_solids"] = sorted(
+            [b["id"] for b in self.balls if not b["in"] and b["id"] in SOLID_IDS]
+        )
+        base["pocketed_stripes"] = sorted(
+            [b["id"] for b in self.balls if not b["in"] and b["id"] in STRIPE_IDS]
+        )
+        base["pocketed_eight"] = any(not b["in"] and b["id"] == 8 for b in self.balls)
         return base
 
     async def handle_action(self, player, action):
@@ -1884,18 +1993,21 @@ class EightBallGame(Game):
             cue = next((b for b in self.balls if b["type"] == "cue"), None)
             if not cue:
                 return
-            x = max(BALL_R, min(TABLE_W - BALL_R, x))
-            y = max(BALL_R, min(TABLE_H - BALL_R, y))
-            # No overlap with other balls
+            x = max(BALL_R + 1, min(TABLE_W - BALL_R - 1, x))
+            y = max(BALL_R + 1, min(TABLE_H - BALL_R - 1, y))
+            if self.kitchen_only and x > KITCHEN_X - BALL_R:
+                x = KITCHEN_X - BALL_R - 0.5
             for b in self.balls:
                 if b is cue or not b["in"]:
                     continue
-                if (b["x"] - x) ** 2 + (b["y"] - y) ** 2 < (2 * BALL_R) ** 2:
+                if (b["x"] - x) ** 2 + (b["y"] - y) ** 2 < (2 * BALL_R + 0.2) ** 2:
                     return
             cue["x"] = x; cue["y"] = y
             cue["in"] = True
             cue["vx"] = 0; cue["vy"] = 0
             self.cue_in_hand = False
+            self.kitchen_only = False
+            self.last_shot_frames = None
             await self.broadcast_state()
         elif kind == "shoot" and not self.cue_in_hand:
             try:
@@ -1903,29 +2015,35 @@ class EightBallGame(Game):
             except (TypeError, ValueError):
                 return
             mag = math.hypot(dx, dy)
-            if mag < 0.01:
+            if mag < 0.5:
                 return
-            power = min(MAX_SHOT_POWER, mag)
+            power = min(MAX_SHOT_POWER, max(2.0, mag))
             cue = next((b for b in self.balls if b["type"] == "cue"), None)
             if not cue or not cue["in"]:
                 return
             cue["vx"] = (dx / mag) * power
             cue["vy"] = (dy / mag) * power
-            frames, pocketed = self._simulate()
+            frames, pocketed, first_hit, cushion_after_hit = self._simulate()
             self.last_shot_frames = frames
             self.last_pocketed = pocketed
-            await self._post_shot(pocketed)
+            self.shot_no += 1
+            await self._post_shot(pocketed, first_hit, cushion_after_hit)
             await self.broadcast_state()
 
     def _simulate(self):
         frames = []
-        steps = 0
-        max_steps = 1200
-        pocketed = []
-        while steps < max_steps:
-            steps += 1
-            # apply friction
+        max_steps = 1600
+        pocketed: list[int] = []
+        first_hit: int | None = None
+        cushion_after_first_hit = False
+        # capture initial frame as t=0
+        frames.append([
+            {"id": b["id"], "x": round(b["x"], 2), "y": round(b["y"], 2), "in": b["in"]}
+            for b in self.balls
+        ])
+        for step in range(max_steps):
             still = True
+            # integrate
             for b in self.balls:
                 if not b["in"]:
                     continue
@@ -1937,15 +2055,18 @@ class EightBallGame(Game):
                 if abs(b["vy"]) < MIN_VEL: b["vy"] = 0
                 if b["vx"] != 0 or b["vy"] != 0:
                     still = False
-                # walls
+                # cushions
+                cushion_hit = False
                 if b["x"] - BALL_R < 0:
-                    b["x"] = BALL_R; b["vx"] = -b["vx"] * 0.9
+                    b["x"] = BALL_R; b["vx"] = -b["vx"] * CUSHION_BOUNCE; cushion_hit = True
                 if b["x"] + BALL_R > TABLE_W:
-                    b["x"] = TABLE_W - BALL_R; b["vx"] = -b["vx"] * 0.9
+                    b["x"] = TABLE_W - BALL_R; b["vx"] = -b["vx"] * CUSHION_BOUNCE; cushion_hit = True
                 if b["y"] - BALL_R < 0:
-                    b["y"] = BALL_R; b["vy"] = -b["vy"] * 0.9
+                    b["y"] = BALL_R; b["vy"] = -b["vy"] * CUSHION_BOUNCE; cushion_hit = True
                 if b["y"] + BALL_R > TABLE_H:
-                    b["y"] = TABLE_H - BALL_R; b["vy"] = -b["vy"] * 0.9
+                    b["y"] = TABLE_H - BALL_R; b["vy"] = -b["vy"] * CUSHION_BOUNCE; cushion_hit = True
+                if cushion_hit and first_hit is not None:
+                    cushion_after_first_hit = True
             # ball-ball collisions
             for i in range(len(self.balls)):
                 a = self.balls[i]
@@ -1961,12 +2082,20 @@ class EightBallGame(Game):
                         overlap = 2 * BALL_R - d
                         a["x"] -= nx * overlap / 2; a["y"] -= ny * overlap / 2
                         b["x"] += nx * overlap / 2; b["y"] += ny * overlap / 2
-                        # 1D elastic along normal
                         va = a["vx"] * nx + a["vy"] * ny
                         vb = b["vx"] * nx + b["vy"] * ny
-                        # swap normal components
-                        a["vx"] += (vb - va) * nx; a["vy"] += (vb - va) * ny
-                        b["vx"] += (va - vb) * nx; b["vy"] += (va - vb) * ny
+                        if va - vb > 0 or vb - va > 0:
+                            # swap normal components with mild damping
+                            a["vx"] += (vb - va) * nx * COLLISION_DAMP
+                            a["vy"] += (vb - va) * ny * COLLISION_DAMP
+                            b["vx"] += (va - vb) * nx * COLLISION_DAMP
+                            b["vy"] += (va - vb) * ny * COLLISION_DAMP
+                        # record first object the cue contacted
+                        if first_hit is None:
+                            if a["type"] == "cue":
+                                first_hit = b["id"]
+                            elif b["type"] == "cue":
+                                first_hit = a["id"]
             # pockets
             for b in self.balls:
                 if not b["in"]: continue
@@ -1976,69 +2105,148 @@ class EightBallGame(Game):
                         b["vx"] = 0; b["vy"] = 0
                         pocketed.append(b["id"])
                         break
-            # record frame every few steps
-            if steps % 2 == 0:
-                frames.append([{"id": b["id"], "x": round(b["x"], 2), "y": round(b["y"], 2), "in": b["in"]} for b in self.balls])
+            if step % PHYS_STEPS_PER_FRAME == 0:
+                frames.append([
+                    {"id": b["id"], "x": round(b["x"], 2), "y": round(b["y"], 2), "in": b["in"]}
+                    for b in self.balls
+                ])
             if still:
                 break
-        return frames, pocketed
+        # final frame to settle visuals
+        frames.append([
+            {"id": b["id"], "x": round(b["x"], 2), "y": round(b["y"], 2), "in": b["in"]}
+            for b in self.balls
+        ])
+        return frames, pocketed, first_hit, cushion_after_first_hit
 
-    async def _post_shot(self, pocketed):
+    async def _post_shot(self, pocketed, first_hit, cushion_after_hit):
         shooter = self.players[self.current_idx]
         opp = self.players[1 - self.current_idx]
         cue = next((b for b in self.balls if b["type"] == "cue"), None)
         cue_pocketed = (cue is None) or (not cue["in"])
-        if cue_pocketed:
-            # respawn cue
-            for b in self.balls:
-                if b["type"] == "cue":
-                    b["x"] = TABLE_W * 0.25; b["y"] = TABLE_H / 2
-                    b["vx"] = 0; b["vy"] = 0
-                    b["in"] = True
-            self.cue_in_hand = True
+
+        # Assignments ----------------------------------------------------
         eight_pocketed = 8 in pocketed
-        scored_own = False
-        scored_opp = False
-        if self.assignments[shooter] is None:
-            # assignment on first non-foul scoring shot
-            solids = [p for p in pocketed if p in (1,2,3,4,5,6,7)]
-            stripes = [p for p in pocketed if p in (9,10,11,12,13,14,15)]
-            if solids and not stripes:
-                self.assignments[shooter] = "solid"; self.assignments[opp] = "stripe"
-                scored_own = True
-            elif stripes and not solids:
-                self.assignments[shooter] = "stripe"; self.assignments[opp] = "solid"
-                scored_own = True
-        else:
-            my_type = self.assignments[shooter]
-            for p in pocketed:
-                if p == 8: continue
-                btype = "solid" if p <= 7 else "stripe"
-                if btype == my_type:
-                    scored_own = True
-                else:
-                    scored_opp = True
-        # check 8-ball outcome
+        non_eight_pocketed = [p for p in pocketed if p != 8]
+        solids_p = [p for p in non_eight_pocketed if p in SOLID_IDS]
+        stripes_p = [p for p in non_eight_pocketed if p in STRIPE_IDS]
+
+        # Assignment happens on first ball pocketed cleanly (and not foul-only)
+        # Cue scratch on the same shot still assigns groups based on what was sunk.
+        if self.assignments[shooter] is None and (solids_p or stripes_p):
+            if solids_p and not stripes_p:
+                self.assignments[shooter] = "solid"
+                self.assignments[opp] = "stripe"
+            elif stripes_p and not solids_p:
+                self.assignments[shooter] = "stripe"
+                self.assignments[opp] = "solid"
+            # if both groups pocketed simultaneously, table stays open
+
+        my_type = self.assignments[shooter]
+
+        # Foul detection -------------------------------------------------
+        foul_reasons: list[str] = []
+        if cue_pocketed:
+            foul_reasons.append("cue ball scratched")
+        if first_hit is None and not cue_pocketed:
+            foul_reasons.append("cue hit nothing")
+        if first_hit is not None and not cue_pocketed:
+            hit_group = _ball_group(first_hit)
+            if my_type is not None:
+                # need to clear group before legally hitting 8
+                cleared_my_group = not any(
+                    b["in"] and ((my_type == "solid" and b["id"] in SOLID_IDS) or
+                                 (my_type == "stripe" and b["id"] in STRIPE_IDS))
+                    for b in self.balls
+                )
+                if hit_group == "eight" and not cleared_my_group:
+                    foul_reasons.append("hit 8-ball before clearing group")
+                elif hit_group != "eight" and hit_group != my_type:
+                    foul_reasons.append("hit opponent's group first")
+            else:
+                # open table: cannot hit 8 first
+                if hit_group == "eight":
+                    foul_reasons.append("hit 8-ball on open table")
+
+        # No-rail rule: at least one ball must hit a cushion or be pocketed
+        if (not cushion_after_hit) and (not pocketed) and first_hit is not None:
+            foul_reasons.append("no rail / no pocket")
+
+        # 8-ball outcome -------------------------------------------------
         if eight_pocketed:
-            # if shooter hasn't cleared own group, loss; if cue scratched, loss; else win
-            my_type = self.assignments[shooter]
             cleared = True
             if my_type:
                 remaining = [b for b in self.balls if b["in"] and (
-                    (my_type == "solid" and 1 <= b["id"] <= 7) or
-                    (my_type == "stripe" and 9 <= b["id"] <= 15))]
+                    (my_type == "solid" and b["id"] in SOLID_IDS) or
+                    (my_type == "stripe" and b["id"] in STRIPE_IDS))]
                 cleared = len(remaining) == 0
-            if cleared and not cue_pocketed:
-                await self.end_game(shooter, f"{shooter} sank the 8-ball — wins!")
+            else:
+                cleared = False  # cannot legally pocket 8 on open break
+            if cleared and not foul_reasons and not cue_pocketed:
+                self.last_event = f"🏆 {shooter} sank the 8-ball — wins!"
+                await self.end_game(shooter, f"{shooter} sank the 8-ball")
                 return
             else:
-                await self.end_game(opp, f"{shooter} pocketed 8-ball early/foul — {opp} wins")
+                self.last_event = f"❌ {shooter} pocketed the 8-ball illegally — {opp} wins"
+                await self.end_game(opp, f"{shooter} pocketed the 8-ball illegally")
                 return
-        # next turn
-        if scored_own and not cue_pocketed:
-            pass  # same player
+
+        # Respawn cue if scratched
+        if cue_pocketed:
+            for b in self.balls:
+                if b["type"] == "cue":
+                    b["x"] = TABLE_W * 0.22; b["y"] = TABLE_H / 2
+                    b["vx"] = 0; b["vy"] = 0
+                    b["in"] = True
+            self.cue_in_hand = True
+            self.kitchen_only = False  # foul: place anywhere
+
+        # Determine what shooter "scored" (pocketed own group)
+        if my_type:
+            scored_own = any(
+                (my_type == "solid" and p in SOLID_IDS) or
+                (my_type == "stripe" and p in STRIPE_IDS)
+                for p in non_eight_pocketed
+            )
         else:
+            # open table — treat any non-eight pocket as "scored own" only if no foul
+            scored_own = bool(non_eight_pocketed)
+
+        # Build status text and decide turn ------------------------------
+        if foul_reasons:
+            self.last_foul = True
+            self.cue_in_hand = True
+            self.kitchen_only = False
+            reason_str = ", ".join(foul_reasons)
+            pieces = [f"Foul: {reason_str}."]
+            if non_eight_pocketed:
+                pieces.append(f"Pocketed: {', '.join(str(n) for n in non_eight_pocketed)}.")
+            pieces.append(f"{opp} has cue ball in hand.")
+            self.last_event = " ".join(pieces)
             self.current_idx = 1 - self.current_idx
+        else:
+            self.last_foul = False
+            if scored_own:
+                bits = []
+                if not my_type and non_eight_pocketed:
+                    bits.append("Open table — pocketed " + ", ".join(str(n) for n in non_eight_pocketed) + ".")
+                elif non_eight_pocketed:
+                    bits.append(f"{shooter} pocketed " + ", ".join(str(n) for n in non_eight_pocketed) + ".")
+                if my_type:
+                    bits.append(f"{shooter} continues — group: {my_type}s.")
+                else:
+                    bits.append(f"{shooter} shoots again.")
+                self.last_event = " ".join(bits)
+                # same player continues
+            else:
+                if non_eight_pocketed:
+                    # made opponent's ball, still ends turn
+                    self.last_event = (f"{shooter} pocketed opponent's ball "
+                                       + ", ".join(str(n) for n in non_eight_pocketed)
+                                       + f". Turn passes to {opp}.")
+                else:
+                    self.last_event = f"{shooter} missed. {opp}'s turn."
+                self.current_idx = 1 - self.current_idx
 
 
 # ---------------------------------------------------------------------------
