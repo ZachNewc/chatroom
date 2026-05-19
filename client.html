@@ -775,8 +775,57 @@
   .game-header .info { font-size: 13px; color: var(--text-dim); }
   .game-header .info b { color: var(--text); }
 
+  /* Open challenge chat card */
+  .open-challenge {
+    margin-top: 8px;
+    background: linear-gradient(135deg, #2a2640, #2c2d34);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    max-width: 480px;
+  }
+  .open-challenge .info { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .open-challenge .info .icon { font-size: 26px; }
+  .open-challenge .info .title { font-weight: 700; }
+  .open-challenge .info .sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .open-challenge.status-finished { border-color: var(--good); }
+  .open-challenge.status-in_progress { border-color: var(--warn); }
+  .open-challenge.status-cancelled { border-color: var(--bad); opacity: 0.7; }
+  .open-challenge.status-finished .title { color: var(--good); }
+  .open-challenge.status-cancelled .title { color: var(--bad); }
+
   /* Wordle */
-  .wordle-wrap { display: flex; gap: 28px; justify-content: center; padding: 10px 0; }
+  .wordle-wrap { display: flex; gap: 28px; justify-content: center; padding: 10px 0; flex-wrap: wrap; }
+  .wordle-keyboard {
+    display: flex; flex-direction: column; gap: 6px;
+    margin: 18px auto 0; user-select: none; width: fit-content;
+  }
+  .wordle-key-row { display: flex; gap: 5px; justify-content: center; }
+  .wordle-key {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 5px;
+    padding: 12px 10px;
+    min-width: 32px;
+    text-align: center;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.12s, transform 0.05s;
+    font-size: 14px;
+  }
+  .wordle-key:hover { background: #41424a; }
+  .wordle-key:active { transform: scale(0.94); }
+  .wordle-key.wide { min-width: 56px; font-size: 12px; }
+  .wordle-key.g { background: #538d4e; color: #fff; border-color: #538d4e; }
+  .wordle-key.y { background: #b59f3b; color: #fff; border-color: #b59f3b; }
+  .wordle-key.b { background: #3a3a3c; color: #999; border-color: #3a3a3c; }
+  .wordle-current-row .cell.filled { border-color: #888; }
   .wordle-side { text-align: center; }
   .wordle-side h3 { margin: 0 0 10px 0; font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
   .wordle-grid {
@@ -1192,7 +1241,7 @@
 //==============================================================
 // CONFIG
 //==============================================================
-const WS_URL = "ws://ec2-3-144-138-147.us-east-2.compute.amazonaws.com:8765";
+const WS_URL = "ws://localhost:8765";
 const HTTP_BASE = WS_URL.replace(/^wss?:/, (m) => m === "wss:" ? "https:" : "http:").replace(/\/$/, "");
 const RECONNECT_DELAY_MS = 2500;
 const PING_INTERVAL_MS = 15000;
@@ -1475,6 +1524,7 @@ function onMessage(ev) {
     case "message":         handleNewMessage(data.message); break;
     case "reaction_update": handleReactionUpdate(data); break;
     case "message_deleted": handleMessageDeleted(data); break;
+    case "message_updated": handleMessageUpdated(data); break;
     case "user_joined":     handleUserJoined(data);     break;
     case "user_left":       handleUserLeft(data);       break;
     case "pending_users":   handlePendingUsers(data);   break;
@@ -1684,6 +1734,10 @@ function renderMessage(m, grouped) {
   if (!m.deleted && m.content) body.appendChild(text);
   else if (m.deleted) body.appendChild(text);
 
+  if (!m.deleted && m.metadata && m.metadata.type === "game_open_challenge") {
+    body.appendChild(renderOpenChallengeCard(m));
+  }
+
   if (!m.deleted && Array.isArray(m.images) && m.images.length) {
     const imgs = document.createElement("div");
     imgs.className = "msg-images";
@@ -1796,6 +1850,20 @@ function handleNewMessage(m) {
   const nearBottom = isNearBottom();
   messagesList.appendChild(renderMessage(m, !!grouped));
   if (nearBottom && !state.hidden) scrollToBottom();
+}
+
+function handleMessageUpdated(data) {
+  const mid = data.message_id;
+  const msg = state.messages.find((x) => x.id === mid);
+  if (!msg) return;
+  if (data.metadata !== undefined) msg.metadata = data.metadata || {};
+  if (data.content !== undefined) msg.content = data.content || "";
+  const oldEl = messagesList.querySelector(`.msg[data-message-id="${mid}"]`);
+  if (oldEl) {
+    const grouped = oldEl.classList.contains("grouped");
+    const newEl = renderMessage(msg, grouped);
+    oldEl.replaceWith(newEl);
+  }
 }
 
 function handleMessageDeleted(data) {
@@ -2551,10 +2619,80 @@ function openGameLauncher() {
   });
 }
 
+// -- open-challenge chat card --
+function renderOpenChallengeCard(msg) {
+  const meta = msg.metadata || {};
+  const status = meta.status || "open";
+  const game = meta.game;
+  const gMeta = GAME_META[game] || { name: meta.game_label || game, icon: "🎮" };
+
+  const card = document.createElement("div");
+  card.className = "open-challenge status-" + status;
+
+  const info = document.createElement("div");
+  info.className = "info";
+  const icon = document.createElement("div");
+  icon.className = "icon";
+  icon.textContent = gMeta.icon;
+  info.appendChild(icon);
+  const text = document.createElement("div");
+  const title = document.createElement("div");
+  title.className = "title";
+  const sub = document.createElement("div");
+  sub.className = "sub";
+  if (status === "open") {
+    title.textContent = `${meta.from} wants to play ${gMeta.name}`;
+    sub.textContent = "First to join gets matched";
+  } else if (status === "in_progress") {
+    title.textContent = `${gMeta.name} in progress`;
+    sub.textContent = `Playing: ${(meta.players || []).join(" vs ")}`;
+  } else if (status === "finished") {
+    if (meta.winner) {
+      title.textContent = `🏆 ${meta.winner} won ${gMeta.name}`;
+    } else {
+      title.textContent = `🤝 ${gMeta.name} ended in a draw`;
+    }
+    sub.textContent = meta.result_text || ((meta.players || []).join(" vs "));
+  } else if (status === "cancelled") {
+    title.textContent = `${gMeta.name} challenge cancelled`;
+    sub.textContent = `from ${meta.from || "?"}`;
+  } else {
+    title.textContent = gMeta.name;
+  }
+  text.appendChild(title);
+  text.appendChild(sub);
+  info.appendChild(text);
+  card.appendChild(info);
+
+  if (status === "open") {
+    const actions = document.createElement("div");
+    if (meta.from !== state.username) {
+      const join = document.createElement("button");
+      join.className = "small";
+      join.textContent = "Join";
+      join.addEventListener("click", () => {
+        send({ type: "game_open_join", invite_id: meta.invite_id });
+      });
+      actions.appendChild(join);
+    } else {
+      const lbl = document.createElement("span");
+      lbl.className = "info";
+      lbl.style.color = "var(--text-dim)";
+      lbl.style.fontSize = "12px";
+      lbl.textContent = "Waiting…";
+      actions.appendChild(lbl);
+    }
+    card.appendChild(actions);
+  }
+
+  return card;
+}
+
 // -- opponent picker for the chosen game --
 function openOpponentPicker(type) {
   const meta = GAME_META[type];
   const multi = (type === "uno");
+  const supportsOpen = (type !== "uno"); // 2-player games support open challenge
   openModal("picker", (modal) => {
     const header = document.createElement("div");
     header.className = "modal-header";
@@ -2566,6 +2704,27 @@ function openOpponentPicker(type) {
     x.addEventListener("click", () => openGameLauncher());
     header.appendChild(h); header.appendChild(x);
     modal.appendChild(header);
+
+    if (supportsOpen) {
+      const broadcastRow = document.createElement("div");
+      broadcastRow.className = "opp-row";
+      broadcastRow.style.borderColor = "var(--accent)";
+      broadcastRow.style.background = "rgba(124, 92, 255, 0.12)";
+      broadcastRow.innerHTML = `<span class="name">📣 Broadcast challenge to chat</span>
+        <span style="color:var(--text-dim);font-size:12px">first to join wins the slot</span>`;
+      broadcastRow.addEventListener("click", () => {
+        send({ type: "game_open_challenge", game: type });
+        closeModal();
+      });
+      modal.appendChild(broadcastRow);
+      const div = document.createElement("div");
+      div.style.color = "var(--text-dim)";
+      div.style.fontSize = "12px";
+      div.style.textAlign = "center";
+      div.style.margin = "10px 0 6px";
+      div.textContent = "— or invite a specific user —";
+      modal.appendChild(div);
+    }
 
     const picker = document.createElement("div");
     picker.className = "opp-picker";
@@ -2741,13 +2900,28 @@ function openGameView() {
   }, { dismissable: false });
 }
 
+const GAME_PARTIAL_UPDATERS = {}; // type_id -> (modal, state) -> bool (true if handled)
+
 function rerenderGameView() {
   if (!gameState.modal || gameState.modalKind !== "game") {
     if (gameState.activeGame) openGameView();
     return;
   }
   const modal = gameState.modal.querySelector(".modal");
-  if (modal) renderGameContent(modal);
+  if (!modal) return;
+  const g = gameState.activeGame;
+  if (modal.dataset.renderedGameId === g.id) {
+    const upd = GAME_PARTIAL_UPDATERS[g.type];
+    if (upd) {
+      try {
+        if (upd(modal, g.state)) return;
+      } catch (e) {
+        console.warn("partial update failed", e);
+      }
+    }
+  }
+  renderGameContent(modal);
+  modal.dataset.renderedGameId = g.id;
 }
 
 function renderGameContent(modal) {
@@ -2818,9 +2992,26 @@ function renderGameContent(modal) {
 }
 
 // ===========================================================================
-// WORDLE renderer
+// WORDLE renderer (with on-screen keyboard)
 // ===========================================================================
+const wordleUI = {
+  currentGuess: "",
+  gameId: null,
+  keyHandler: null,
+};
+
 function renderWordle(body, s) {
+  // reset per-game in-flight state
+  if (wordleUI.gameId !== gameState.activeGame.id) {
+    wordleUI.currentGuess = "";
+    wordleUI.gameId = gameState.activeGame.id;
+  }
+  // detach old physical-keyboard handler if any
+  if (wordleUI.keyHandler) {
+    document.removeEventListener("keydown", wordleUI.keyHandler);
+    wordleUI.keyHandler = null;
+  }
+
   const wrap = document.createElement("div");
   wrap.className = "wordle-wrap";
 
@@ -2834,7 +3025,8 @@ function renderWordle(body, s) {
     const oppSet = !!both[opp];
     card.innerHTML = `<h3>Pick a 5-letter word for your opponent</h3>
       <p style="color:var(--text-dim);font-size:13px">Your word: <b>${meSet ? "✓ submitted" : "not yet"}</b>
-        · Opponent: <b>${oppSet ? "✓ ready" : "waiting"}</b></p>`;
+        · Opponent: <b>${oppSet ? "✓ ready" : "waiting"}</b></p>
+      <p style="color:var(--text-dim);font-size:12px;margin-top:-6px">Any 5-letter word works (real or made up).</p>`;
     if (!meSet) {
       const input = document.createElement("input");
       input.type = "text";
@@ -2847,12 +3039,13 @@ function renderWordle(body, s) {
       btn.style.marginLeft = "6px";
       btn.addEventListener("click", () => {
         const w = input.value.trim().toLowerCase();
-        if (w.length !== 5) return;
+        if (w.length !== 5 || !/^[a-z]+$/.test(w)) return;
         sendGameAction({ kind: "set_secret", word: w });
       });
       input.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
       card.appendChild(input);
       card.appendChild(btn);
+      setTimeout(() => input.focus(), 0);
     } else if (!oppSet) {
       const wait = document.createElement("div");
       wait.style.marginTop = "10px";
@@ -2865,61 +3058,65 @@ function renderWordle(body, s) {
     return;
   }
 
+  const opp = s.players.find((p) => p !== state.username);
+  const myCanType = s.phase === "playing" && !s.my_solved && (s.my_guesses || []).length < s.max_guesses;
+
   const mySide = document.createElement("div");
   mySide.className = "wordle-side";
   mySide.innerHTML = `<h3>Your board</h3>`;
-  mySide.appendChild(buildWordleGrid(s.my_guesses, s.max_guesses));
-  if (s.phase === "playing" && !s.my_solved && (s.my_guesses || []).length < s.max_guesses) {
-    const ig = document.createElement("div");
-    ig.className = "wordle-input";
-    const input = document.createElement("input");
-    input.type = "text"; input.maxLength = 5; input.placeholder = "guess";
-    const btn = document.createElement("button");
-    btn.textContent = "Guess";
-    btn.addEventListener("click", () => {
-      const w = input.value.trim().toLowerCase();
-      if (w.length !== 5) return;
-      sendGameAction({ kind: "guess", word: w });
-      input.value = "";
-    });
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
-    ig.appendChild(input); ig.appendChild(btn);
-    mySide.appendChild(ig);
-    setTimeout(() => input.focus(), 0);
-  } else if (s.my_solved) {
+  mySide.appendChild(buildWordleGrid(s.my_guesses, s.max_guesses, myCanType ? wordleUI.currentGuess : "", false));
+  if (s.my_solved) {
     const ok = document.createElement("div"); ok.style.color = "var(--good)"; ok.style.marginTop="8px"; ok.textContent="✓ Solved!"; mySide.appendChild(ok);
   }
   wrap.appendChild(mySide);
 
   const oppSide = document.createElement("div");
   oppSide.className = "wordle-side";
-  oppSide.innerHTML = `<h3>${s.opp_name || "Opponent"}</h3>`;
-  oppSide.appendChild(buildWordleGrid(s.opp_guesses, s.max_guesses));
+  oppSide.innerHTML = `<h3>${opp || "Opponent"}</h3>`;
+  oppSide.appendChild(buildWordleGrid(s.opp_guesses, s.max_guesses, "", true));
   if (s.opp_solved) {
     const ok = document.createElement("div"); ok.style.color = "var(--good)"; ok.style.marginTop="8px"; ok.textContent="✓ Solved!"; oppSide.appendChild(ok);
   }
   wrap.appendChild(oppSide);
 
+  body.appendChild(wrap);
+
   if (s.phase === "ended" && s.secrets) {
     const secrets = document.createElement("div");
-    secrets.style.gridColumn = "1/-1";
     secrets.style.width = "100%";
     secrets.style.textAlign = "center";
     secrets.style.marginTop = "12px";
     secrets.innerHTML = `<div class="game-banner">Words were: ${s.players.map((p) => `<b>${p}</b>: ${(s.secrets[p]||"").toUpperCase()}`).join(" · ")}</div>`;
-    body.appendChild(wrap);
     body.appendChild(secrets);
     return;
   }
 
-  body.appendChild(wrap);
+  if (myCanType) {
+    const kb = buildWordleKeyboard(s.my_guesses);
+    body.appendChild(kb);
+
+    // Physical keyboard input
+    const handler = (e) => {
+      if (!gameState.activeGame || gameState.activeGame.type !== "wordle") {
+        document.removeEventListener("keydown", handler);
+        return;
+      }
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+      if (e.key === "Enter") { wordleTrySubmit(); e.preventDefault(); }
+      else if (e.key === "Backspace") { wordleBackspace(); e.preventDefault(); }
+      else if (/^[a-zA-Z]$/.test(e.key)) { wordleAddLetter(e.key); e.preventDefault(); }
+    };
+    document.addEventListener("keydown", handler);
+    wordleUI.keyHandler = handler;
+  }
 }
 
-function buildWordleGrid(guesses, maxGuesses) {
+function buildWordleGrid(guesses, maxGuesses, currentGuess, isOpponent) {
   const grid = document.createElement("div");
   grid.className = "wordle-grid";
   guesses = guesses || [];
   for (let r = 0; r < maxGuesses; r++) {
+    const isCurrentRow = r === guesses.length && currentGuess !== undefined;
     for (let c = 0; c < 5; c++) {
       const cell = document.createElement("div");
       cell.className = "cell";
@@ -2929,6 +3126,9 @@ function buildWordleGrid(guesses, maxGuesses) {
         if (letter) cell.textContent = letter;
         else cell.classList.add("opp");
         if (row.score && row.score[c]) cell.classList.add(row.score[c]);
+      } else if (isCurrentRow && !isOpponent && currentGuess && c < currentGuess.length) {
+        cell.textContent = currentGuess[c];
+        cell.classList.add("filled");
       }
       grid.appendChild(cell);
     }
@@ -2936,188 +3136,351 @@ function buildWordleGrid(guesses, maxGuesses) {
   return grid;
 }
 
+function buildWordleKeyboard(myGuesses) {
+  // compute per-letter best status from all of my guesses so far
+  const statuses = {};
+  for (const row of (myGuesses || [])) {
+    if (!row.word || !row.score) continue;
+    for (let i = 0; i < 5; i++) {
+      const L = row.word[i].toUpperCase();
+      const s = row.score[i];
+      const prev = statuses[L];
+      // priority: g > y > b
+      if (s === "g") statuses[L] = "g";
+      else if (s === "y" && prev !== "g") statuses[L] = "y";
+      else if (s === "b" && !prev) statuses[L] = "b";
+    }
+  }
+  const kb = document.createElement("div");
+  kb.className = "wordle-keyboard";
+  const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+  rows.forEach((row, ri) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "wordle-key-row";
+    if (ri === 2) {
+      const enter = document.createElement("button");
+      enter.className = "wordle-key wide";
+      enter.textContent = "Enter";
+      enter.addEventListener("click", (e) => { e.preventDefault(); wordleTrySubmit(); });
+      rowEl.appendChild(enter);
+    }
+    for (const letter of row) {
+      const k = document.createElement("button");
+      k.className = "wordle-key" + (statuses[letter] ? " " + statuses[letter] : "");
+      k.textContent = letter;
+      k.addEventListener("click", (e) => { e.preventDefault(); wordleAddLetter(letter); });
+      rowEl.appendChild(k);
+    }
+    if (ri === 2) {
+      const back = document.createElement("button");
+      back.className = "wordle-key wide";
+      back.textContent = "⌫";
+      back.addEventListener("click", (e) => { e.preventDefault(); wordleBackspace(); });
+      rowEl.appendChild(back);
+    }
+    kb.appendChild(rowEl);
+  });
+  return kb;
+}
+
+function wordleAddLetter(L) {
+  if (wordleUI.currentGuess.length >= 5) return;
+  wordleUI.currentGuess += L.toLowerCase();
+  refreshWordleCurrentRow();
+}
+function wordleBackspace() {
+  if (!wordleUI.currentGuess.length) return;
+  wordleUI.currentGuess = wordleUI.currentGuess.slice(0, -1);
+  refreshWordleCurrentRow();
+}
+function wordleTrySubmit() {
+  const g = wordleUI.currentGuess;
+  if (g.length !== 5) return;
+  sendGameAction({ kind: "guess", word: g });
+  wordleUI.currentGuess = "";
+  refreshWordleCurrentRow();
+}
+function refreshWordleCurrentRow() {
+  // update only the in-progress row of my grid without rebuilding everything
+  if (!gameState.activeGame) return;
+  const modal = gameState.modal && gameState.modal.querySelector(".modal");
+  if (!modal) return;
+  const sides = modal.querySelectorAll(".wordle-side");
+  if (!sides.length) return;
+  const mySide = sides[0];
+  const grid = mySide.querySelector(".wordle-grid");
+  if (!grid) return;
+  const state_ = gameState.activeGame.state;
+  const guessesDone = (state_.my_guesses || []).length;
+  const cells = grid.querySelectorAll(".cell");
+  for (let c = 0; c < 5; c++) {
+    const cell = cells[guessesDone * 5 + c];
+    if (!cell) continue;
+    if (cell.classList.contains("g") || cell.classList.contains("y") || cell.classList.contains("b")) continue;
+    if (c < wordleUI.currentGuess.length) {
+      cell.textContent = wordleUI.currentGuess[c].toUpperCase();
+      cell.classList.add("filled");
+    } else {
+      cell.textContent = "";
+      cell.classList.remove("filled");
+    }
+  }
+}
+
 // ===========================================================================
-// WORD HUNT renderer
+// WORD HUNT renderer (stable DOM — board never re-renders mid-game)
 // ===========================================================================
-const whState = {
-  current: [],  // list of cell indices in path
-  message: "",
-  messageKind: "",
-  timerId: null,
+const whUI = {
+  gameId: null,
+  cells: [],
+  scoreRows: {},  // username -> { row, val }
+  cur: null,
+  list: null,
+  listHeader: null,
+  timer: null,
+  timerInterval: null,
+  startWallTime: 0,
+  startElapsed: 0,
+  duration: 80,
+  current: [],
+  tracking: false,
+  pointerHandlersAttached: false,
+  keyHandler: null,
 };
 
+function whCleanup() {
+  if (whUI.timerInterval) { clearInterval(whUI.timerInterval); whUI.timerInterval = null; }
+  if (whUI.keyHandler)    { document.removeEventListener("keydown", whUI.keyHandler); whUI.keyHandler = null; }
+  if (whUI.windowMoveHandler) window.removeEventListener("pointermove", whUI.windowMoveHandler);
+  if (whUI.windowUpHandler)   window.removeEventListener("pointerup",   whUI.windowUpHandler);
+  whUI.windowMoveHandler = null;
+  whUI.windowUpHandler = null;
+  whUI.gameId = null;
+  whUI.cells = [];
+  whUI.scoreRows = {};
+  whUI.cur = null;
+  whUI.list = null;
+  whUI.timer = null;
+  whUI.current = [];
+  whUI.tracking = false;
+  whUI.pointerHandlersAttached = false;
+}
+
 function renderWordHunt(body, s) {
+  if (whUI.gameId !== gameState.activeGame.id) {
+    whCleanup();
+    whUI.gameId = gameState.activeGame.id;
+  }
+
   const wrap = document.createElement("div");
   wrap.className = "wh-wrap";
-  whState.message = whState.message || "";
 
   const board = document.createElement("div");
   board.className = "wh-board";
+  whUI.cells = [];
   for (let i = 0; i < 16; i++) {
     const cell = document.createElement("div");
     cell.className = "wh-cell";
     cell.dataset.idx = String(i);
     cell.textContent = s.board[i];
     board.appendChild(cell);
+    whUI.cells.push(cell);
   }
   wrap.appendChild(board);
 
   const side = document.createElement("div");
   side.className = "wh-side";
 
-  const timer = document.createElement("div");
-  timer.className = "wh-timer";
-  side.appendChild(timer);
+  whUI.timer = document.createElement("div");
+  whUI.timer.className = "wh-timer";
+  side.appendChild(whUI.timer);
 
   const me = state.username;
-  const opp = s.players.find((p) => p !== me);
-  const scoreRow = document.createElement("div");
-  scoreRow.className = "row";
-  scoreRow.innerHTML = `<span>You</span><span>${s.scores[me] || 0}</span>`;
-  side.appendChild(scoreRow);
-  const oppRow = document.createElement("div");
-  oppRow.className = "row";
-  oppRow.innerHTML = `<span>${opp}</span><span>${s.scores[opp] || 0}</span>`;
-  side.appendChild(oppRow);
-
-  const cur = document.createElement("div");
-  cur.className = "wh-current" + (whState.messageKind ? " " + whState.messageKind : "");
-  cur.textContent = whState.message || "Trace letters to form a word";
-  side.appendChild(cur);
-
-  const myWordsHdr = document.createElement("div");
-  myWordsHdr.style.fontSize = "12px";
-  myWordsHdr.style.color = "var(--text-dim)";
-  myWordsHdr.style.marginTop = "10px";
-  myWordsHdr.textContent = s.ended ? "All words" : "Your words";
-  side.appendChild(myWordsHdr);
-
-  const list = document.createElement("div");
-  list.className = "wh-word-list";
-  if (s.ended && s.all_words) {
-    const meWords = s.all_words[me] || [];
-    const oppWords = s.all_words[opp] || [];
-    list.innerHTML = `<div><b>You:</b> ${meWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>
-      <div style="margin-top:6px"><b>${opp}:</b> ${oppWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>`;
-  } else {
-    list.innerHTML = (s.my_words || []).map((w)=>`<span class="w">${w}</span>`).join("");
+  whUI.scoreRows = {};
+  for (const p of s.players) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const label = document.createElement("span");
+    label.textContent = (p === me) ? "You" : p;
+    const val = document.createElement("span");
+    val.textContent = String(s.scores[p] || 0);
+    row.appendChild(label); row.appendChild(val);
+    side.appendChild(row);
+    whUI.scoreRows[p] = { row, val };
   }
-  side.appendChild(list);
+
+  whUI.cur = document.createElement("div");
+  whUI.cur.className = "wh-current";
+  whUI.cur.textContent = "Trace letters to form a word";
+  side.appendChild(whUI.cur);
+
+  whUI.listHeader = document.createElement("div");
+  whUI.listHeader.style.fontSize = "12px";
+  whUI.listHeader.style.color = "var(--text-dim)";
+  whUI.listHeader.style.marginTop = "10px";
+  whUI.listHeader.textContent = s.ended ? "All words" : "Your words";
+  side.appendChild(whUI.listHeader);
+
+  whUI.list = document.createElement("div");
+  whUI.list.className = "wh-word-list";
+  renderWordHuntList(s);
+  side.appendChild(whUI.list);
 
   wrap.appendChild(side);
   body.appendChild(wrap);
 
-  // timer ticking
-  function updateTimer() {
-    const remaining = Math.max(0, (s.duration || 80) - (s.elapsed || 0) - ((Date.now() - tickStart)/1000));
-    const m = Math.floor(remaining / 60);
-    const sec = Math.floor(remaining % 60);
-    timer.textContent = s.ended ? "Time!" : `${m}:${String(sec).padStart(2,"0")}`;
-  }
-  const tickStart = Date.now();
-  if (whState.timerId) clearInterval(whState.timerId);
+  whUI.startWallTime = Date.now();
+  whUI.startElapsed = s.elapsed || 0;
+  whUI.duration = s.duration || 80;
+  whUpdateTimer(s);
+  if (whUI.timerInterval) clearInterval(whUI.timerInterval);
   if (!s.ended) {
-    whState.timerId = setInterval(updateTimer, 250);
+    whUI.timerInterval = setInterval(() => whUpdateTimer(s), 250);
   }
-  updateTimer();
 
-  // pointer-based tracing
-  whState.current = [];
+  // re-apply any in-progress trace (preserved across rerenders)
+  whPaint();
+  whAttachHandlers(board, s);
+}
+
+function renderWordHuntList(s) {
+  if (!whUI.list) return;
+  const me = state.username;
+  const opp = s.players.find((p) => p !== me);
+  if (s.ended && s.all_words) {
+    const meWords = s.all_words[me] || [];
+    const oppWords = s.all_words[opp] || [];
+    whUI.list.innerHTML = `<div><b>You:</b> ${meWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>
+      <div style="margin-top:6px"><b>${opp}:</b> ${oppWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>`;
+  } else {
+    whUI.list.innerHTML = (s.my_words || []).map((w)=>`<span class="w">${w}</span>`).join("");
+  }
+}
+
+function whUpdateTimer(s) {
+  if (!whUI.timer) return;
+  if (s.ended) { whUI.timer.textContent = "Time!"; return; }
+  const elapsed = whUI.startElapsed + (Date.now() - whUI.startWallTime) / 1000;
+  const remaining = Math.max(0, whUI.duration - elapsed);
+  const m = Math.floor(remaining / 60);
+  const sec = Math.floor(remaining % 60);
+  whUI.timer.textContent = `${m}:${String(sec).padStart(2,"0")}`;
+}
+
+function whVisit(idx, boardLetters) {
+  if (whUI.current.length === 0) {
+    whUI.current.push(idx);
+  } else {
+    const last = whUI.current[whUI.current.length - 1];
+    if (idx === last) return;
+    const existing = whUI.current.indexOf(idx);
+    if (existing !== -1) {
+      if (existing === whUI.current.length - 2) whUI.current.pop();
+      return;
+    }
+    const lr = Math.floor(last / 4), lc = last % 4;
+    const r = Math.floor(idx / 4), c = idx % 4;
+    if (Math.max(Math.abs(lr - r), Math.abs(lc - c)) !== 1) return;
+    whUI.current.push(idx);
+  }
+  whPaint();
+}
+
+function whPaint() {
+  if (!whUI.cells.length) return;
+  for (const el of whUI.cells) el.classList.remove("active", "last");
+  whUI.current.forEach((idx, i) => {
+    const el = whUI.cells[idx];
+    if (!el) return;
+    el.classList.add("active");
+    if (i === whUI.current.length - 1) el.classList.add("last");
+  });
+  const word = whUI.current.map((i) => whUI.cells[i].textContent).join("");
+  if (whUI.cur) {
+    whUI.cur.textContent = word || "Trace letters to form a word";
+    whUI.cur.className = "wh-current";
+  }
+}
+
+function whCommit() {
+  if (!gameState.activeGame || gameState.activeGame.state.ended) {
+    whUI.current = []; whPaint(); return;
+  }
+  if (whUI.current.length >= 3) {
+    const word = whUI.current.map((i) => whUI.cells[i].textContent).join("").toLowerCase();
+    sendGameAction({ kind: "submit", word });
+  }
+  whUI.current = [];
+  whPaint();
+}
+
+function whAttachHandlers(board, s) {
+  // pointer handlers on the *board* element are tied to this render's board,
+  // so re-attach every full render. Window handlers are global and reused.
   function cellAtPoint(x, y) {
     const el = document.elementFromPoint(x, y);
     if (!el) return null;
     if (el.classList.contains("wh-cell")) return el;
     return null;
   }
-  function rectCenter(el) {
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  }
-  function visit(idx) {
-    if (whState.current.length === 0) {
-      whState.current.push(idx);
-    } else {
-      const last = whState.current[whState.current.length - 1];
-      if (idx === last) return;
-      // if already visited, allow backtracking by one
-      const existing = whState.current.indexOf(idx);
-      if (existing !== -1) {
-        if (existing === whState.current.length - 2) whState.current.pop();
-        return;
-      }
-      const lr = Math.floor(last / 4), lc = last % 4;
-      const r = Math.floor(idx / 4), c = idx % 4;
-      if (Math.max(Math.abs(lr - r), Math.abs(lc - c)) !== 1) return;
-      whState.current.push(idx);
-    }
-    paint();
-  }
-  function paint() {
-    board.querySelectorAll(".wh-cell").forEach((el) => el.classList.remove("active", "last"));
-    whState.current.forEach((idx, i) => {
-      const el = board.querySelector(`.wh-cell[data-idx="${idx}"]`);
-      el.classList.add("active");
-      if (i === whState.current.length - 1) el.classList.add("last");
-    });
-    const word = whState.current.map((i) => s.board[i]).join("").toLowerCase();
-    cur.textContent = word.toUpperCase() || "Trace letters to form a word";
-    cur.className = "wh-current";
-  }
-  function commit() {
-    if (whState.current.length >= 3) {
-      const word = whState.current.map((i) => s.board[i]).join("").toLowerCase();
-      sendGameAction({ kind: "submit", word });
-    }
-    whState.current = [];
-    board.querySelectorAll(".wh-cell").forEach((el) => el.classList.remove("active", "last"));
-  }
-
-  let tracking = false;
-  function onDown(e) {
+  board.addEventListener("pointerdown", (e) => {
     if (s.ended) return;
     e.preventDefault();
-    tracking = true;
-    whState.current = [];
-    const p = e.touches ? e.touches[0] : e;
-    const c = cellAtPoint(p.clientX, p.clientY);
-    if (c) visit(parseInt(c.dataset.idx, 10));
-  }
-  function onMove(e) {
-    if (!tracking) return;
-    e.preventDefault();
-    const p = e.touches ? e.touches[0] : e;
-    const c = cellAtPoint(p.clientX, p.clientY);
-    if (c) visit(parseInt(c.dataset.idx, 10));
-  }
-  function onUp(e) {
-    if (!tracking) return;
-    e.preventDefault();
-    tracking = false;
-    commit();
-  }
-  board.addEventListener("pointerdown", onDown);
-  window.addEventListener("pointermove", onMove);
-  window.addEventListener("pointerup", onUp);
-
-  // also support tap-to-build (click each letter then submit on space)
+    whUI.tracking = true;
+    whUI.current = [];
+    const c = cellAtPoint(e.clientX, e.clientY);
+    if (c) whVisit(parseInt(c.dataset.idx, 10));
+  });
   board.addEventListener("click", (e) => {
-    if (tracking) return;
+    if (whUI.tracking) return;
     const cell = e.target.closest(".wh-cell");
     if (!cell) return;
-    visit(parseInt(cell.dataset.idx, 10));
+    whVisit(parseInt(cell.dataset.idx, 10));
   });
-  document.addEventListener("keydown", whKeyHandler);
-  function whKeyHandler(e) {
-    if (!gameState.activeGame || gameState.activeGame.type !== "word_hunt") {
-      document.removeEventListener("keydown", whKeyHandler);
-      return;
-    }
-    if (e.key === "Enter") commit();
-    else if (e.key === "Escape" || e.key === "Backspace") {
-      whState.current = []; paint();
-    }
+
+  if (!whUI.windowMoveHandler) {
+    whUI.windowMoveHandler = (e) => {
+      if (!whUI.tracking) return;
+      e.preventDefault();
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && el.classList.contains("wh-cell")) whVisit(parseInt(el.dataset.idx, 10));
+    };
+    window.addEventListener("pointermove", whUI.windowMoveHandler);
+  }
+  if (!whUI.windowUpHandler) {
+    whUI.windowUpHandler = (e) => {
+      if (!whUI.tracking) return;
+      whUI.tracking = false;
+      whCommit();
+    };
+    window.addEventListener("pointerup", whUI.windowUpHandler);
+  }
+  if (!whUI.keyHandler) {
+    whUI.keyHandler = (e) => {
+      if (!gameState.activeGame || gameState.activeGame.type !== "word_hunt") return;
+      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+      if (e.key === "Enter")      { whCommit(); e.preventDefault(); }
+      else if (e.key === "Escape" || e.key === "Backspace") {
+        whUI.current = []; whPaint(); e.preventDefault();
+      }
+    };
+    document.addEventListener("keydown", whUI.keyHandler);
   }
 }
+
+// Partial updater — fires on every game_state push when same game id.
+GAME_PARTIAL_UPDATERS["word_hunt"] = (modal, s) => {
+  if (s.ended) return false;                       // need full rebuild to show all_words + close behavior
+  if (!whUI.cells.length || !whUI.cells[0].isConnected) return false;
+  // scores
+  for (const p of s.players) {
+    if (whUI.scoreRows[p]) {
+      whUI.scoreRows[p].val.textContent = String(s.scores[p] || 0);
+    }
+  }
+  renderWordHuntList(s);
+  return true;
+};
 
 // ===========================================================================
 // CHESS renderer

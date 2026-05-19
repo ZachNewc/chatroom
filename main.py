@@ -80,7 +80,8 @@ async def init_db() -> None:
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 deleted INTEGER NOT NULL DEFAULT 0,
-                images TEXT NOT NULL DEFAULT '[]'
+                images TEXT NOT NULL DEFAULT '[]',
+                metadata TEXT NOT NULL DEFAULT '{}'
             )
             """
         )
@@ -90,6 +91,8 @@ async def init_db() -> None:
             await db.execute("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
         if "images" not in msg_cols:
             await db.execute("ALTER TABLE messages ADD COLUMN images TEXT NOT NULL DEFAULT '[]'")
+        if "metadata" not in msg_cols:
+            await db.execute("ALTER TABLE messages ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
         await db.execute(
             """
             CREATE TABLE IF NOT EXISTS reactions (
@@ -218,7 +221,7 @@ async def get_reactions_bulk(message_ids):
 
 
 def _serialize_message(row, reactions):
-    mid, username, content, created_at, deleted, images_json = row
+    mid, username, content, created_at, deleted, images_json, metadata_json = row
     is_deleted = bool(deleted)
     try:
         images = json.loads(images_json) if images_json else []
@@ -226,6 +229,12 @@ def _serialize_message(row, reactions):
             images = []
     except json.JSONDecodeError:
         images = []
+    try:
+        metadata = json.loads(metadata_json) if metadata_json else {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+    except json.JSONDecodeError:
+        metadata = {}
     return {
         "id": mid,
         "username": username,
@@ -234,19 +243,20 @@ def _serialize_message(row, reactions):
         "reactions": {} if is_deleted else reactions,
         "deleted": is_deleted,
         "images": [] if is_deleted else images,
+        "metadata": {} if is_deleted else metadata,
     }
 
 
 async def get_messages_page(before_id=None, limit=HISTORY_PAGE_SIZE):
     if before_id is None:
         rows = await db_fetchall(
-            "SELECT id, username, content, created_at, deleted, images FROM messages "
+            "SELECT id, username, content, created_at, deleted, images, metadata FROM messages "
             "ORDER BY id DESC LIMIT ?",
             (limit + 1,),
         )
     else:
         rows = await db_fetchall(
-            "SELECT id, username, content, created_at, deleted, images FROM messages "
+            "SELECT id, username, content, created_at, deleted, images, metadata FROM messages "
             "WHERE id < ? ORDER BY id DESC LIMIT ?",
             (before_id, limit + 1),
         )
@@ -259,13 +269,14 @@ async def get_messages_page(before_id=None, limit=HISTORY_PAGE_SIZE):
     return msgs, has_more
 
 
-async def insert_message(username: str, content: str, images=None):
+async def insert_message(username: str, content: str, images=None, metadata=None):
     created = now_iso()
     images = images or []
+    metadata = metadata or {}
     mid = await db_execute(
-        "INSERT INTO messages (username, content, created_at, images) "
-        "VALUES (?, ?, ?, ?)",
-        (username, content, created, json.dumps(images)),
+        "INSERT INTO messages (username, content, created_at, images, metadata) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (username, content, created, json.dumps(images), json.dumps(metadata)),
     )
     return {
         "id": mid,
@@ -275,7 +286,26 @@ async def insert_message(username: str, content: str, images=None):
         "reactions": {},
         "deleted": False,
         "images": images,
+        "metadata": metadata,
     }
+
+
+async def update_message_metadata(message_id: int, metadata: dict, content: str | None = None):
+    """Update the metadata (and optionally content) of an existing message, broadcasting."""
+    if content is None:
+        await db_execute(
+            "UPDATE messages SET metadata = ? WHERE id = ?",
+            (json.dumps(metadata), message_id),
+        )
+    else:
+        await db_execute(
+            "UPDATE messages SET metadata = ?, content = ? WHERE id = ?",
+            (json.dumps(metadata), content, message_id),
+        )
+    payload = {"type": "message_updated", "message_id": message_id, "metadata": metadata}
+    if content is not None:
+        payload["content"] = content
+    await broadcast(payload)
 
 
 async def delete_message(message_id: int, requester: str, is_admin: bool):
@@ -293,7 +323,7 @@ async def delete_message(message_id: int, requester: str, is_admin: bool):
         if author != requester and not is_admin:
             return ("forbidden",)
         await db_execute(
-            "UPDATE messages SET deleted = 1, content = '', images = '[]' WHERE id = ?",
+            "UPDATE messages SET deleted = 1, content = '', images = '[]', metadata = '{}' WHERE id = ?",
             (message_id,),
         )
         await db_execute(
@@ -792,40 +822,66 @@ _FALLBACK_WORDS = (
 ).split()
 
 
+EXTERNAL_DICT_URL = "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
+EXTERNAL_DICT_CACHE = "word_dictionary.txt"
+
+
+def _ingest_words(text: str, target: set[str]):
+    for line in text.splitlines():
+        w = line.strip().lower()
+        if w.isalpha() and 3 <= len(w) <= 16:
+            target.add(w)
+
+
 def _load_word_dict():
-    """Populate WORD_DICT from system dictionaries with a fallback."""
-    paths = (
-        "/usr/share/dict/words",
-        "/usr/share/dict/american-english",
-        "/usr/share/dict/british-english",
-    )
+    """Populate WORD_DICT — prefer external dwyl/english-words (~370k entries)
+    cached locally; fall back to system dictionaries then a small built-in list.
+    """
     words: set[str] = set()
-    for p in paths:
-        if os.path.isfile(p):
+
+    if os.path.isfile(EXTERNAL_DICT_CACHE):
+        try:
+            with open(EXTERNAL_DICT_CACHE, "r", encoding="utf-8", errors="ignore") as f:
+                _ingest_words(f.read(), words)
+        except OSError:
+            pass
+
+    if not words:
+        try:
+            import urllib.request
+            print(f"[chatroom] Fetching word dictionary from {EXTERNAL_DICT_URL} …")
+            req = urllib.request.Request(EXTERNAL_DICT_URL, headers={"User-Agent": "chatroom/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = resp.read().decode("utf-8", errors="ignore")
             try:
-                with open(p, "r", encoding="utf-8", errors="ignore") as f:
-                    for line in f:
-                        w = line.strip().lower()
-                        if w.isalpha() and 3 <= len(w) <= 16:
-                            words.add(w)
-                if words:
-                    break
+                with open(EXTERNAL_DICT_CACHE, "w", encoding="utf-8") as f:
+                    f.write(data)
             except OSError:
                 pass
+            _ingest_words(data, words)
+        except Exception as e:
+            print(f"[chatroom] External dictionary fetch failed ({e}); falling back.")
+
     if not words:
-        for w in _FALLBACK_WORDS:
-            w = w.strip().lower()
-            if w.isalpha() and 3 <= len(w) <= 16:
-                words.add(w)
+        for p in ("/usr/share/dict/words",
+                  "/usr/share/dict/american-english",
+                  "/usr/share/dict/british-english"):
+            if os.path.isfile(p):
+                try:
+                    with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                        _ingest_words(f.read(), words)
+                    if words:
+                        break
+                except OSError:
+                    pass
+
+    if not words:
+        _ingest_words(" ".join(_FALLBACK_WORDS), words)
+
     WORD_DICT.update(words)
-    # Wordle answers = 5-letter words from dict
     for w in WORD_DICT:
         if len(w) == 5:
             WORDLE_ANSWERS.add(w)
-    if not WORDLE_ANSWERS:
-        for w in _FALLBACK_WORDS:
-            if len(w) == 5 and w.isalpha():
-                WORDLE_ANSWERS.add(w.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +900,7 @@ class Game:
         self.ended = False
         self.winner: str | None = None
         self.result_text: str = ""
+        self.chat_message_id: int | None = None  # for open challenges
 
     def is_player(self, username: str) -> bool:
         return username in self.players
@@ -882,6 +939,19 @@ class Game:
         for p in self.players:
             _unregister_user_game(p, self.id)
         games.pop(self.id, None)
+        if self.chat_message_id is not None:
+            meta = {
+                "type": "game_open_challenge",
+                "game": self.type_id,
+                "status": "finished",
+                "players": list(self.players),
+                "winner": winner,
+                "result_text": result_text,
+            }
+            try:
+                await update_message_metadata(self.chat_message_id, meta)
+            except Exception:
+                pass
 
     async def player_left(self, username: str):
         if self.ended or username not in self.players:
@@ -952,8 +1022,8 @@ class WordleGame(Game):
             return
         if kind == "set_secret" and self.phase == "setup":
             word = (action.get("word") or "").strip().lower()
-            if len(word) != 5 or not word.isalpha() or word not in WORDLE_ANSWERS:
-                await _send_to_user(player, {"type": "game_error", "message": "Word must be a real 5-letter word"})
+            if len(word) != 5 or not word.isalpha():
+                await _send_to_user(player, {"type": "game_error", "message": "Word must be 5 letters"})
                 return
             self.secret[player] = word
             if all(self.secret[p] for p in self.players):
@@ -963,8 +1033,8 @@ class WordleGame(Game):
             if self.solved[player] or len(self.guesses[player]) >= self.MAX_GUESSES:
                 return
             guess = (action.get("word") or "").strip().lower()
-            if len(guess) != 5 or not guess.isalpha() or guess not in WORDLE_ANSWERS:
-                await _send_to_user(player, {"type": "game_error", "message": "Not a valid word"})
+            if len(guess) != 5 or not guess.isalpha():
+                await _send_to_user(player, {"type": "game_error", "message": "Guess must be 5 letters"})
                 return
             self.guesses[player].append(guess)
             opponent = next(p for p in self.players if p != player)
@@ -1993,6 +2063,90 @@ def _create_game(game_type: str, players: list[str]) -> Game:
     return g
 
 
+async def handle_game_open_challenge(ws, data):
+    """Broadcast an open challenge in chat that anyone can join."""
+    info = connections.get(ws)
+    if not info:
+        return
+    sender = info["username"]
+    gtype = data.get("game")
+    if gtype not in GAME_TYPES:
+        await safe_send(ws, {"type": "game_error", "message": "Unknown game"})
+        return
+    cls = GAME_CLASSES[gtype]
+    # Currently UI only supports open challenge for 2-player games (wordle, etc.)
+    invite_id = uuid.uuid4().hex[:10]
+    msg = await insert_message(
+        sender,
+        f"🎮 {sender} started an open {cls.display_name} challenge",
+        images=[],
+        metadata={
+            "type": "game_open_challenge",
+            "game": gtype,
+            "game_label": cls.display_name,
+            "status": "open",
+            "from": sender,
+            "invite_id": invite_id,
+            "players": [],
+        },
+    )
+    game_invites[invite_id] = {
+        "id": invite_id,
+        "from": sender,
+        "to": [],
+        "accepted": [],
+        "declined": [],
+        "game": gtype,
+        "game_label": cls.display_name,
+        "created_at": now_iso(),
+        "is_open": True,
+        "chat_message_id": msg["id"],
+    }
+    await broadcast({"type": "message", "message": msg})
+
+
+async def handle_game_open_join(ws, data):
+    info = connections.get(ws)
+    if not info:
+        return
+    joiner = info["username"]
+    inv_id = data.get("invite_id")
+    invite = game_invites.get(inv_id)
+    if not invite or not invite.get("is_open"):
+        await safe_send(ws, {"type": "game_error", "message": "Challenge no longer available"})
+        return
+    if invite["accepted"]:
+        await safe_send(ws, {"type": "game_error", "message": "Already taken"})
+        return
+    if joiner == invite["from"]:
+        await safe_send(ws, {"type": "game_error", "message": "You can't join your own challenge"})
+        return
+    invite["accepted"].append(joiner)
+    chat_message_id = invite.get("chat_message_id")
+    game_invites.pop(inv_id, None)
+    players = [invite["from"], joiner]
+    cls = GAME_CLASSES[invite["game"]]
+    if chat_message_id is not None:
+        await update_message_metadata(chat_message_id, {
+            "type": "game_open_challenge",
+            "game": invite["game"],
+            "game_label": cls.display_name,
+            "status": "in_progress",
+            "from": invite["from"],
+            "players": players,
+            "invite_id": inv_id,
+        })
+    g = _create_game(invite["game"], players)
+    g.chat_message_id = chat_message_id
+    payload_base = {"type": "game_started", "game_id": g.id, "game_type": invite["game"]}
+    for p in players:
+        payload = dict(payload_base)
+        payload["state"] = g.public_state(p)
+        await _send_to_user(p, payload)
+    if isinstance(g, WordHuntGame):
+        await g.start_timer()
+
+
 async def handle_game_invite_create(ws, data):
     info = connections.get(ws)
     if not info:
@@ -2170,6 +2324,17 @@ async def on_user_disconnect_for_games(username: str):
             to_remove.append(inv_id)
             for t in invite["to"] + invite["accepted"]:
                 await _send_to_user(t, {"type": "game_invite_cancelled", "invite_id": inv_id})
+            if invite.get("is_open") and invite.get("chat_message_id") is not None:
+                try:
+                    await update_message_metadata(invite["chat_message_id"], {
+                        "type": "game_open_challenge",
+                        "game": invite["game"],
+                        "game_label": invite.get("game_label", invite["game"]),
+                        "status": "cancelled",
+                        "from": username,
+                    })
+                except Exception:
+                    pass
         elif username in invite["to"] or username in invite["accepted"]:
             invite["to"] = [t for t in invite["to"] if t != username]
             invite["accepted"] = [t for t in invite["accepted"] if t != username]
@@ -2212,6 +2377,10 @@ async def handle_connection(ws) -> None:
                 await handle_admin_action(ws, data, "deny")
             elif t == "game_invite_create":
                 await handle_game_invite_create(ws, data)
+            elif t == "game_open_challenge":
+                await handle_game_open_challenge(ws, data)
+            elif t == "game_open_join":
+                await handle_game_open_join(ws, data)
             elif t == "game_invite_accept":
                 await handle_game_invite_accept(ws, data)
             elif t == "game_invite_decline":
