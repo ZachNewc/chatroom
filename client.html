@@ -1,0 +1,3805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How To Pick Up Flakes</title>
+<link id="favicon" rel="icon" type="image/png" href="" />
+<style>
+  :root {
+    --bg: #1e1f24;
+    --bg-alt: #26272d;
+    --bg-elev: #2c2d34;
+    --bg-input: #34353c;
+    --border: #3a3b42;
+    --text: #e7e8ea;
+    --text-dim: #9aa0a6;
+    --accent: #7c5cff;
+    --accent-hover: #9077ff;
+    --good: #4ade80;
+    --warn: #facc15;
+    --bad: #f87171;
+    --like: #ff5d8f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji",
+      "Segoe UI Symbol", sans-serif;
+    font-size: 15px;
+    overflow: hidden;
+  }
+  button, input {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+  button.secondary:hover { background: #41424a; }
+  button.danger { background: #aa4848; }
+  button.danger:hover { background: #c25555; }
+  button.small {
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+  input[type="text"], input[type="password"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus {
+    border-color: var(--accent);
+  }
+
+  /* ---------- Auth / pending screens ---------- */
+  .center-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #2c2540 0%, var(--bg) 70%);
+  }
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 30px;
+    width: 360px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  .card h1 {
+    margin: 0 0 6px 0;
+    font-size: 22px;
+    text-align: center;
+  }
+  .card .subtitle {
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 13px;
+  }
+  .tabs {
+    display: flex;
+    margin-bottom: 18px;
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 3px;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+  }
+  .tab.active {
+    background: var(--accent);
+    color: white;
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .form-actions { margin-top: 18px; }
+  .form-actions button { width: 100%; }
+  .form-msg {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .form-msg.error { background: rgba(248, 113, 113, 0.15); color: var(--bad); }
+  .form-msg.success { background: rgba(74, 222, 128, 0.15); color: var(--good); }
+  .form-msg.info { background: rgba(124, 92, 255, 0.15); color: var(--accent-hover); }
+
+  /* ---------- Chat layout ---------- */
+  #chat-screen {
+    display: none;
+    height: 100vh;
+    flex-direction: column;
+  }
+  header.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-alt);
+  }
+  header.app-header h1 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: 0.3px;
+  }
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bad);
+    box-shadow: 0 0 6px var(--bad);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .light.good { background: var(--good); box-shadow: 0 0 8px var(--good); }
+  .light.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .light.bad  { background: var(--bad);  box-shadow: 0 0 8px var(--bad);  }
+
+  .app-main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  aside.sidebar {
+    width: 240px;
+    background: var(--bg-alt);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .sidebar h3 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-dim);
+  }
+  #user-info {
+    padding: 10px 12px;
+    background: var(--bg-elev);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #user-info .name {
+    font-weight: 600;
+  }
+  .role-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .role-badge.user {
+    background: var(--bg-input);
+    color: var(--text-dim);
+  }
+  ul.user-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  ul.user-list li {
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 6px;
+    color: var(--text);
+  }
+  ul.user-list li:hover { background: var(--bg-elev); }
+  ul.user-list li .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--good);
+  }
+  .pending-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-elev);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .pending-item .actions {
+    display: flex;
+    gap: 6px;
+  }
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+    padding: 4px 10px;
+  }
+
+  /* ---------- Messages ---------- */
+  section.chat-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+  }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+  }
+  #load-more-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+  }
+  #load-more {
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  #load-more:hover { background: var(--bg-input); }
+
+  .msg {
+    display: flex;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.1s;
+    position: relative;
+  }
+  .msg:hover { background: var(--bg-alt); }
+  .msg.grouped { padding-top: 0; padding-bottom: 0; margin-top: -2px; }
+  .msg.grouped .avatar { visibility: hidden; height: 0; }
+  .msg.grouped .msg-head { display: none; }
+  .msg.system {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+    justify-content: center;
+    padding: 4px 0;
+  }
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .msg-name { font-weight: 600; }
+  .msg-time { font-size: 11px; color: var(--text-dim); }
+  .msg-text {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.4;
+    user-select: text;
+  }
+  .msg-text .emoji {
+    font-size: 1.15em;
+    vertical-align: middle;
+  }
+  .msg-text.deleted {
+    color: var(--text-dim);
+    font-style: italic;
+    user-select: none;
+  }
+  .msg-action-btn.danger { color: #c97c7c; }
+  .msg-action-btn.danger:hover { color: #f87171; background: rgba(248,113,113,0.12); }
+  .reactions {
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .reaction {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+  }
+  .reaction:hover { background: var(--bg-input); }
+  .reaction.liked-by-me {
+    background: rgba(255, 93, 143, 0.15);
+    border-color: var(--like);
+    color: var(--like);
+  }
+  .reaction .tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    background: #111;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  .reaction:hover .tooltip { opacity: 1; }
+
+  /* ---------- Message hover actions ---------- */
+  .msg-actions {
+    position: absolute;
+    top: -14px;
+    right: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+    display: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    z-index: 4;
+  }
+  .msg:hover .msg-actions { display: flex; }
+  .msg-action-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    padding: 4px 8px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+  }
+  .msg-action-btn:hover {
+    background: var(--bg-input);
+    color: var(--text);
+  }
+
+  /* ---------- Emoji picker popup ---------- */
+  .emoji-picker {
+    position: fixed;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    width: 340px;
+    height: 360px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+  }
+  .emoji-picker .search {
+    width: 100%;
+    padding: 7px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    outline: none;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .emoji-picker .search:focus { border-color: var(--accent); }
+  .emoji-grid {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding-right: 2px;
+  }
+  .emoji-grid button {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    color: inherit;
+    line-height: 1.2;
+  }
+  .emoji-grid button:hover { background: var(--bg-input); }
+  .emoji-picker .empty {
+    color: var(--text-dim);
+    text-align: center;
+    font-size: 13px;
+    padding: 30px 0;
+  }
+  .emoji-picker .footer {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    padding-top: 6px;
+  }
+
+  /* ---------- Unread divider ---------- */
+  .unread-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 6px;
+    color: var(--bad);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    user-select: none;
+  }
+  .unread-divider::before,
+  .unread-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--bad);
+    opacity: 0.5;
+  }
+
+  /* ---------- Inline message images ---------- */
+  .msg-images {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .msg-images img {
+    max-width: 320px;
+    max-height: 320px;
+    border-radius: 8px;
+    cursor: zoom-in;
+    border: 1px solid var(--border);
+    background: #000;
+    object-fit: contain;
+  }
+
+  /* ---------- Lightbox ---------- */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    cursor: zoom-out;
+  }
+  .lightbox img {
+    max-width: 92vw;
+    max-height: 92vh;
+    border-radius: 8px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+  }
+  .lightbox .close {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  /* ---------- Floating toolbar (bottom-right) ---------- */
+  .floating-toolbar {
+    position: fixed;
+    bottom: 110px;
+    right: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 60;
+  }
+  .fab {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+    transition: background 0.15s, transform 0.15s, color 0.15s;
+    padding: 0;
+  }
+  .fab:hover {
+    background: var(--accent);
+    color: white;
+    transform: translateY(-2px);
+  }
+  .fab:disabled { opacity: 0.4; cursor: not-allowed; transform: none; background: var(--bg-elev); color: var(--text); }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    z-index: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    width: 640px;
+    max-width: 92vw;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-header h2 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .webcam-stage {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .webcam-stage video,
+  .webcam-stage img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .webcam-stage video,
+  .webcam-stage img.mirrored {
+    transform: scaleX(-1);
+  }
+  .webcam-error {
+    color: var(--bad);
+    font-size: 13px;
+    text-align: center;
+    padding: 0 12px;
+  }
+  .webcam-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    align-items: center;
+  }
+  .webcam-actions .caption {
+    flex: 1;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    outline: none;
+  }
+  .webcam-actions .caption:focus { border-color: var(--accent); }
+
+  /* ---------- Games ---------- */
+  .modal.game-modal {
+    width: 920px;
+    max-width: 96vw;
+    max-height: 96vh;
+    padding: 16px;
+  }
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .game-card {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  }
+  .game-card:hover {
+    border-color: var(--accent);
+    background: #3a3140;
+    transform: translateY(-2px);
+  }
+  .game-card .icon { font-size: 32px; }
+  .game-card .name { font-weight: 700; margin-top: 6px; }
+  .game-card .desc { color: var(--text-dim); font-size: 12px; margin-top: 4px; line-height: 1.35; }
+
+  .invite-panel {
+    position: fixed;
+    right: 28px;
+    bottom: 180px;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 320px;
+  }
+  .invite-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    animation: slideIn 0.2s ease-out;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .invite-card .title {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .invite-card .title b { color: var(--accent-hover); }
+  .invite-card .actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .opp-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .opp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .opp-row:hover { border-color: var(--accent); }
+  .opp-row.selected { border-color: var(--accent); background: rgba(124, 92, 255, 0.15); }
+  .opp-row .name { font-weight: 600; }
+
+  .game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .game-header .info { font-size: 13px; color: var(--text-dim); }
+  .game-header .info b { color: var(--text); }
+
+  /* Wordle */
+  .wordle-wrap { display: flex; gap: 28px; justify-content: center; padding: 10px 0; }
+  .wordle-side { text-align: center; }
+  .wordle-side h3 { margin: 0 0 10px 0; font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .wordle-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 48px);
+    grid-template-rows: repeat(6, 48px);
+    gap: 5px;
+    justify-content: center;
+  }
+  .wordle-grid .cell {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--border);
+    background: var(--bg-elev);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 22px;
+    text-transform: uppercase;
+    border-radius: 4px;
+  }
+  .wordle-grid .cell.g { background: #538d4e; border-color: #538d4e; color: #fff; }
+  .wordle-grid .cell.y { background: #b59f3b; border-color: #b59f3b; color: #fff; }
+  .wordle-grid .cell.b { background: #3a3a3c; border-color: #3a3a3c; color: #fff; }
+  .wordle-grid .cell.opp { font-size: 14px; }
+  .wordle-input { margin-top: 12px; display: flex; gap: 6px; justify-content: center; }
+  .wordle-input input { width: 180px; text-transform: uppercase; }
+
+  /* Word Hunt */
+  .wh-wrap { display: flex; gap: 30px; padding: 10px; justify-content: center; align-items: flex-start; }
+  .wh-board {
+    display: grid;
+    grid-template-columns: repeat(4, 72px);
+    grid-template-rows: repeat(4, 72px);
+    gap: 6px;
+    background: var(--bg-input);
+    padding: 8px;
+    border-radius: 12px;
+    user-select: none;
+    touch-action: none;
+  }
+  .wh-cell {
+    background: var(--bg-elev);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .wh-cell.active { background: var(--accent); color: white; border-color: var(--accent); transform: scale(0.96); }
+  .wh-cell.last   { background: var(--accent-hover); }
+  .wh-side {
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .wh-side .row {
+    display: flex;
+    justify-content: space-between;
+    background: var(--bg-input);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .wh-current {
+    text-align: center;
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    min-height: 22px;
+  }
+  .wh-current.err { color: var(--bad); }
+  .wh-current.ok  { color: var(--good); }
+  .wh-word-list { font-size: 12px; max-height: 200px; overflow-y: auto; line-height: 1.6; }
+  .wh-word-list .w { background: var(--bg-elev); padding: 2px 8px; margin: 2px; border-radius: 10px; display: inline-block; }
+  .wh-timer {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent-hover);
+  }
+
+  /* Chess */
+  .chess-wrap { display: flex; gap: 18px; justify-content: center; align-items: flex-start; }
+  .chess-board {
+    display: grid;
+    grid-template-columns: repeat(8, 56px);
+    grid-template-rows: repeat(8, 56px);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .chess-sq {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+  }
+  .chess-sq.light { background: #f0d9b5; }
+  .chess-sq.dark  { background: #b58863; }
+  .chess-sq .piece { line-height: 1; }
+  .chess-sq.sel { box-shadow: inset 0 0 0 4px var(--accent); }
+  .chess-sq.dot::after {
+    content: "";
+    position: absolute;
+    width: 18px; height: 18px;
+    background: rgba(124,92,255,0.6);
+    border-radius: 50%;
+  }
+  .chess-sq.cap { box-shadow: inset 0 0 0 4px var(--like); }
+  .chess-sq.last { box-shadow: inset 0 0 0 4px var(--warn); }
+  .chess-side { min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
+  .chess-side .row { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-input); border-radius: 6px; font-size: 13px; }
+  .chess-side .row.active { background: var(--accent); color: white; }
+
+  /* UNO */
+  .uno-wrap { display: flex; flex-direction: column; gap: 12px; padding: 6px; }
+  .uno-top { display: flex; justify-content: space-around; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .uno-opponent { text-align: center; min-width: 90px; }
+  .uno-opponent .name { font-weight: 600; font-size: 13px; }
+  .uno-opponent.active .name { color: var(--accent-hover); }
+  .uno-opponent .cards { font-size: 12px; color: var(--text-dim); }
+  .uno-opponent .back-card { width: 36px; height: 52px; background: linear-gradient(135deg,#222,#444); border-radius: 6px; border: 2px solid #555; margin: 4px auto 0; }
+  .uno-middle { display: flex; justify-content: center; align-items: center; gap: 30px; min-height: 130px; }
+  .uno-card { width: 70px; height: 100px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; color: white; cursor: pointer; user-select: none; box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 3px solid white; flex-shrink: 0; transition: transform 0.12s; }
+  .uno-card.small { width: 50px; height: 72px; font-size: 16px; }
+  .uno-card.tiny  { width: 32px; height: 46px; font-size: 11px; border-width: 2px; }
+  .uno-card.R { background: #d63031; }
+  .uno-card.Y { background: #fdcb6e; color: #000; }
+  .uno-card.G { background: #00b894; }
+  .uno-card.B { background: #0984e3; }
+  .uno-card.W { background: linear-gradient(135deg, #d63031 0%, #fdcb6e 25%, #00b894 50%, #0984e3 75%, #d63031 100%); }
+  .uno-card.playable:hover { transform: translateY(-10px); }
+  .uno-card.disabled { opacity: 0.5; cursor: not-allowed; }
+  .uno-card.back { background: linear-gradient(135deg,#222,#444); border-color: #555; }
+  .uno-deck { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+  .uno-hand { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; padding: 8px; background: var(--bg-input); border-radius: 10px; min-height: 120px; }
+  .uno-direction { font-size: 22px; color: var(--text-dim); }
+  .uno-color-pick { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+  .uno-color-pick .swatch { width: 44px; height: 44px; border-radius: 8px; cursor: pointer; border: 3px solid white; }
+
+  /* 8-Ball */
+  .pool-wrap { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .pool-canvas-wrap { position: relative; }
+  .pool-canvas { background: #2d6a4f; border-radius: 12px; border: 12px solid #5d2906; box-shadow: 0 8px 22px rgba(0,0,0,0.5); cursor: crosshair; touch-action: none; }
+  .pool-info { display: flex; gap: 18px; font-size: 13px; }
+  .pool-info .me, .pool-info .opp { padding: 6px 12px; background: var(--bg-input); border-radius: 6px; }
+  .pool-info .me.active, .pool-info .opp.active { background: var(--accent); color: white; }
+
+  /* shared error/text */
+  .game-banner { padding: 8px 12px; background: var(--bg-input); border-radius: 6px; text-align: center; font-size: 13px; }
+  .game-banner.err { background: rgba(248,113,113,0.15); color: var(--bad); }
+  .game-banner.ok  { background: rgba(74,222,128,0.15); color: var(--good); }
+
+  /* ---------- Drop overlay ---------- */
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(124, 92, 255, 0.15);
+    border: 2px dashed var(--accent);
+    border-radius: 12px;
+    margin: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-hover);
+    font-weight: 700;
+    font-size: 18px;
+    z-index: 50;
+    pointer-events: none;
+    backdrop-filter: blur(2px);
+  }
+
+  /* ---------- Input ---------- */
+  .input-area {
+    padding: 14px 28px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    position: relative;
+  }
+  .attach-previews {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .attach-previews:empty { display: none; }
+  .attach-preview {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .attach-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .attach-preview .x {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .attach-preview .x:hover { background: #c33; }
+  .attach-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-right: 6px;
+    border-radius: 4px;
+    font-size: 18px;
+  }
+  .attach-btn:hover { color: var(--text); background: var(--bg-elev); }
+  .input-wrap {
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .input-wrap:focus-within {
+    border-color: var(--accent);
+  }
+  #msg-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    padding: 4px 0;
+  }
+  #emoji-suggest {
+    position: absolute;
+    bottom: 76px;
+    left: 28px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    width: 320px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 20;
+  }
+  #emoji-suggest .suggest-header {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .suggest-item .em { font-size: 18px; width: 22px; text-align: center; }
+  .suggest-item .nm { color: var(--text); }
+  .suggest-item .hint { margin-left: auto; color: var(--text-dim); font-size: 11px; }
+  .suggest-item:hover, .suggest-item.active { background: var(--bg-input); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #3a3b42; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #4a4b54; }
+</style>
+</head>
+<body>
+
+<!-- ============== AUTH SCREEN ============== -->
+<div id="auth-screen" class="center-screen">
+  <div class="card">
+    <h1>How To Pick Up Flakes</h1>
+    <div class="subtitle">Sign in or create an account</div>
+    <div class="tabs">
+      <div class="tab active" data-tab="login">Login</div>
+      <div class="tab" data-tab="register">Register</div>
+    </div>
+
+    <form id="login-form" autocomplete="off">
+      <div class="form-group">
+        <label for="login-username">Username</label>
+        <input type="text" id="login-username" autocomplete="username" required />
+      </div>
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" autocomplete="current-password" required />
+      </div>
+      <div class="form-actions">
+        <button type="submit" id="login-btn">Log in</button>
+      </div>
+      <div class="form-msg" id="login-msg" style="display:none"></div>
+    </form>
+
+    <form id="register-form" autocomplete="off" style="display:none">
+      <div class="form-group">
+        <label for="reg-username">Username</label>
+        <input type="text" id="reg-username" maxlength="32" required />
+      </div>
+      <div class="form-group">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" required />
+      </div>
+      <div class="form-actions">
+        <button type="submit" id="register-btn">Create account</button>
+      </div>
+      <div class="form-msg" id="register-msg" style="display:none"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== CHAT SCREEN ============== -->
+<div id="chat-screen">
+  <header class="app-header">
+    <h1>How To Pick Up Flakes</h1>
+    <div class="conn-status">
+      <span id="conn-text">Disconnected</span>
+      <span class="light" id="conn-light" title="Connection health"></span>
+    </div>
+  </header>
+
+  <div class="app-main">
+    <aside class="sidebar">
+      <div id="user-info">
+        <span class="name" id="me-name">-</span>
+        <span class="role-badge" id="me-role">USER</span>
+      </div>
+
+      <div>
+        <h3>Online <span id="online-count" style="color:var(--text-dim)"></span></h3>
+        <ul class="user-list" id="online-list"></ul>
+      </div>
+
+      <div id="admin-panel" style="display:none">
+        <h3>Pending Approvals</h3>
+        <div id="pending-list"></div>
+      </div>
+
+      <div style="margin-top:auto">
+        <button class="secondary" id="logout-btn" style="width:100%">Log out</button>
+      </div>
+    </aside>
+
+    <section class="chat-body">
+      <div id="messages">
+        <div id="load-more-wrap" style="display:none">
+          <button id="load-more">Load more messages</button>
+        </div>
+        <div id="messages-list" style="display:flex;flex-direction:column;gap:2px;"></div>
+      </div>
+
+      <div class="input-area">
+        <div id="emoji-suggest"></div>
+        <div class="attach-previews" id="attach-previews"></div>
+        <div class="input-wrap">
+          <button id="attach-btn" class="attach-btn" type="button" title="Attach images" disabled>＋</button>
+          <input id="file-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple style="display:none" />
+          <input type="text" id="msg-input" placeholder="Message #flakes  ·  drag/drop or paste images  ·  :sob: :fire: :tada:" autocomplete="off" disabled />
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="floating-toolbar" id="floating-toolbar">
+    <button id="fab-games" class="fab" type="button" title="Play games">🎮</button>
+    <button id="fab-camera" class="fab" type="button" title="Take a photo with your webcam">📷</button>
+  </div>
+  <div class="invite-panel" id="invite-panel"></div>
+</div>
+
+<script>
+//==============================================================
+// CONFIG
+//==============================================================
+const WS_URL = "ws://localhost:8765";
+const HTTP_BASE = WS_URL.replace(/^wss?:/, (m) => m === "wss:" ? "https:" : "http:").replace(/\/$/, "");
+const RECONNECT_DELAY_MS = 2500;
+const PING_INTERVAL_MS = 15000;
+const PING_TIMEOUT_MS = 8000;
+const MAX_ATTACHMENTS = 5;
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_IMAGE_MIMES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+//==============================================================
+// EMOJI MAP  (Discord-style :name: aliases)
+//==============================================================
+const EMOJI_MAP = {
+  // faces
+  grinning:"😀", smile:"😄", smiley:"😃", laughing:"😆", joy:"😂",
+  rofl:"🤣", sweat_smile:"😅", wink:"😉", blush:"😊", innocent:"😇",
+  slight_smile:"🙂", upside_down:"🙃", relaxed:"☺️", heart_eyes:"😍",
+  kissing_heart:"😘", yum:"😋", stuck_out_tongue:"😛", crazy_face:"🤪",
+  zany:"🤪", money_mouth:"🤑", hugs:"🤗", thinking:"🤔", zipper_mouth:"🤐",
+  neutral_face:"😐", expressionless:"😑", no_mouth:"😶", smirk:"😏",
+  unamused:"😒", roll_eyes:"🙄", grimacing:"😬", lying:"🤥", relieved:"😌",
+  pensive:"😔", sleepy:"😪", drooling:"🤤", sleeping:"😴", mask:"😷",
+  thermometer_face:"🤒", head_bandage:"🤕", nauseated:"🤢", sneezing:"🤧",
+  hot:"🥵", cold:"🥶", woozy:"🥴", dizzy:"😵", exploding_head:"🤯",
+  cowboy:"🤠", partying:"🥳", sunglasses:"😎", nerd:"🤓", monocle:"🧐",
+  confused:"😕", worried:"😟", slight_frown:"🙁", frowning:"☹️",
+  open_mouth:"😮", hushed:"😯", astonished:"😲", flushed:"😳",
+  pleading:"🥺", anguished:"😧", fearful:"😨", cold_sweat:"😰",
+  cry:"😢", sob:"😭", scream:"😱", confounded:"😖", persevere:"😣",
+  disappointed:"😞", sweat:"😓", weary:"😩", tired_face:"😫", yawning:"🥱",
+  triumph:"😤", rage:"😡", angry:"😠", cursing:"🤬", smiling_imp:"😈",
+  imp:"👿", skull:"💀", skull_crossbones:"☠️", poop:"💩", clown:"🤡",
+  ogre:"👹", goblin:"👺", ghost:"👻", alien:"👽", space_invader:"👾",
+  robot:"🤖",
+  // hearts
+  heart:"❤️", orange_heart:"🧡", yellow_heart:"💛", green_heart:"💚",
+  blue_heart:"💙", purple_heart:"💜", brown_heart:"🤎", black_heart:"🖤",
+  white_heart:"🤍", broken_heart:"💔", two_hearts:"💕", sparkling_heart:"💖",
+  heartbeat:"💓", heartpulse:"💗", cupid:"💘", gift_heart:"💝",
+  // hands
+  thumbsup:"👍", "+1":"👍", thumbsdown:"👎", "-1":"👎", ok_hand:"👌",
+  pinched_fingers:"🤌", pinching_hand:"🤏", v:"✌️", crossed_fingers:"🤞",
+  love_you_gesture:"🤟", metal:"🤘", call_me:"🤙", point_left:"👈",
+  point_right:"👉", point_up_2:"👆", middle_finger:"🖕", point_down:"👇",
+  point_up:"☝️", wave:"👋", raised_back_of_hand:"🤚", raised_hand:"✋",
+  vulcan_salute:"🖖", clap:"👏", raised_hands:"🙌", open_hands:"👐",
+  palms_up:"🤲", handshake:"🤝", pray:"🙏", writing_hand:"✍️",
+  nail_care:"💅", selfie:"🤳", muscle:"💪", brain:"🧠", eyes:"👀",
+  eye:"👁️", tongue:"👅", lips:"👄",
+  // people
+  baby:"👶", child:"🧒", boy:"👦", girl:"👧", man:"👨", woman:"👩",
+  old_man:"👴", old_woman:"👵",
+  // food
+  pizza:"🍕", hamburger:"🍔", fries:"🍟", hotdog:"🌭", taco:"🌮",
+  burrito:"🌯", sushi:"🍣", ramen:"🍜", spaghetti:"🍝", popcorn:"🍿",
+  cookie:"🍪", cake:"🍰", birthday:"🎂", icecream:"🍦", doughnut:"🍩",
+  chocolate_bar:"🍫", candy:"🍬", lollipop:"🍭", apple:"🍎", banana:"🍌",
+  grapes:"🍇", strawberry:"🍓", watermelon:"🍉", peach:"🍑", eggplant:"🍆",
+  hot_pepper:"🌶️", corn:"🌽", carrot:"🥕", potato:"🥔", broccoli:"🥦",
+  beer:"🍺", beers:"🍻", wine_glass:"🍷", cocktail:"🍸", tropical_drink:"🍹",
+  champagne:"🍾", coffee:"☕", tea:"🍵",
+  // animals
+  dog:"🐶", cat:"🐱", mouse:"🐭", hamster:"🐹", rabbit:"🐰", fox:"🦊",
+  bear:"🐻", panda:"🐼", koala:"🐨", tiger:"🐯", lion:"🦁", cow:"🐮",
+  pig:"🐷", frog:"🐸", monkey:"🐵", chicken:"🐔", penguin:"🐧", bird:"🐦",
+  baby_chick:"🐤", duck:"🦆", eagle:"🦅", owl:"🦉", bat:"🦇", wolf:"🐺",
+  boar:"🐗", horse:"🐴", unicorn:"🦄", bee:"🐝", bug:"🐛", butterfly:"🦋",
+  snail:"🐌", beetle:"🪲", ant:"🐜", spider:"🕷️", scorpion:"🦂",
+  snake:"🐍", turtle:"🐢", lizard:"🦎", t_rex:"🦖", whale:"🐳",
+  dolphin:"🐬", fish:"🐟", shark:"🦈", octopus:"🐙", crab:"🦀",
+  shrimp:"🦐",
+  // weather/space
+  fire:"🔥", sparkles:"✨", boom:"💥", star:"⭐", star2:"🌟", zap:"⚡",
+  snowflake:"❄️", sun:"☀️", cloud:"☁️", umbrella:"☔", rainbow:"🌈",
+  moon:"🌙", earth:"🌍", rocket:"🚀", airplane:"✈️", car:"🚗", bike:"🚲",
+  ship:"🚢",
+  // games/sports
+  trophy:"🏆", medal:"🏅", crown:"👑", soccer:"⚽", basketball:"🏀",
+  football:"🏈", baseball:"⚾", tennis:"🎾", "8ball":"🎱", bowling:"🎳",
+  dart:"🎯", game_die:"🎲", video_game:"🎮",
+  // misc
+  musical_note:"🎵", notes:"🎶", microphone:"🎤", headphones:"🎧",
+  guitar:"🎸", drum:"🥁", camera:"📷", movie_camera:"🎥", tv:"📺",
+  computer:"💻", desktop:"🖥️", phone:"📱", battery:"🔋", bulb:"💡",
+  flashlight:"🔦", money:"💰", dollar:"💵", credit_card:"💳", gem:"💎",
+  hammer:"🔨", wrench:"🔧", gear:"⚙️", lock:"🔒", unlock:"🔓", key:"🔑",
+  bell:"🔔", no_bell:"🔕", bookmark:"🔖", link:"🔗", paperclip:"📎",
+  mag:"🔍", pencil:"✏️", pen:"🖊️", memo:"📝", book:"📖", books:"📚",
+  scroll:"📜", page:"📄", newspaper:"📰", envelope:"✉️", email:"📧",
+  package:"📦", calendar:"📅", clipboard:"📋", chart:"📈", bar_chart:"📊",
+  // marks
+  check:"✅", x:"❌", warning:"⚠️", no_entry:"⛔", question:"❓",
+  exclamation:"❗", bangbang:"‼️", "100":"💯", arrow_up:"⬆️",
+  arrow_down:"⬇️", arrow_left:"⬅️", arrow_right:"➡️",
+  recycle:"♻️", infinity:"♾️", ok:"🆗", new:"🆕", cool:"🆒",
+  // party
+  tada:"🎉", confetti_ball:"🎊", balloon:"🎈", gift:"🎁", ring:"💍",
+  // common reactions
+  shrug:"🤷", facepalm:"🤦", bow:"🙇", salute:"🫡", saluting:"🫡",
+  melting:"🫠", peepoSad:"😢", kek:"😂",
+};
+const EMOJI_NAMES = Object.keys(EMOJI_MAP);
+
+//==============================================================
+// STATE
+//==============================================================
+const state = {
+  ws: null,
+  connected: false,
+  authenticated: false,
+  username: null,
+  role: null,
+  onlineUsers: [],
+  messages: [],           // ordered oldest -> newest
+  hasMore: false,
+  pendingUsers: [],
+  lastPongAt: 0,
+  lastPingAt: 0,
+  shouldReconnect: true,
+  reconnectTimer: null,
+  pingTimer: null,
+  healthTimer: null,
+  emojiSuggest: { open: false, term: "", activeIndex: 0, items: [] },
+  hidden: false,
+  unreadCount: 0,
+  firstUnreadId: null,
+  attachments: [],  // pending image uploads: {id, name, mime, dataB64, previewUrl}
+};
+
+const BASE_TITLE = "How To Pick Up Flakes";
+
+//==============================================================
+// DOM REFS
+//==============================================================
+const $ = (id) => document.getElementById(id);
+const authScreen   = $("auth-screen");
+const chatScreen   = $("chat-screen");
+const loginForm    = $("login-form");
+const registerForm = $("register-form");
+const loginMsg     = $("login-msg");
+const registerMsg  = $("register-msg");
+const connLight    = $("conn-light");
+const connText     = $("conn-text");
+const onlineList   = $("online-list");
+const onlineCount  = $("online-count");
+const pendingList  = $("pending-list");
+const adminPanel   = $("admin-panel");
+const meName       = $("me-name");
+const meRole       = $("me-role");
+const messagesEl   = $("messages");
+const messagesList = $("messages-list");
+const loadMoreWrap = $("load-more-wrap");
+const loadMoreBtn  = $("load-more");
+const msgInput     = $("msg-input");
+const emojiSuggest = $("emoji-suggest");
+const logoutBtn    = $("logout-btn");
+const attachPreviews = $("attach-previews");
+const attachBtn      = $("attach-btn");
+const fileInput      = $("file-input");
+const chatBody       = document.querySelector(".chat-body");
+
+//==============================================================
+// AUTH TAB SWITCHING
+//==============================================================
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const which = tab.dataset.tab;
+    loginForm.style.display    = which === "login"    ? "block" : "none";
+    registerForm.style.display = which === "register" ? "block" : "none";
+    hideMsg(loginMsg); hideMsg(registerMsg);
+  });
+});
+
+function showMsg(el, text, kind) {
+  el.textContent = text;
+  el.className = "form-msg " + (kind || "info");
+  el.style.display = "block";
+}
+function hideMsg(el) { el.style.display = "none"; }
+
+//==============================================================
+// WEBSOCKET CONNECTION
+//==============================================================
+function connect() {
+  setConnStatus("warn", "Connecting...");
+  try {
+    state.ws = new WebSocket(WS_URL);
+  } catch (e) {
+    setConnStatus("bad", "Failed to connect");
+    scheduleReconnect();
+    return;
+  }
+  state.ws.addEventListener("open", onOpen);
+  state.ws.addEventListener("message", onMessage);
+  state.ws.addEventListener("close", onClose);
+  state.ws.addEventListener("error", () => {});
+}
+
+function onOpen() {
+  state.connected = true;
+  state.lastPongAt = Date.now();
+  setConnStatus("good", "Connected");
+  msgInput.disabled = !state.authenticated;
+  startPingLoop();
+}
+
+function onClose() {
+  state.connected = false;
+  msgInput.disabled = true;
+  stopPingLoop();
+  setConnStatus("bad", "Disconnected");
+  if (state.shouldReconnect) scheduleReconnect();
+}
+
+function scheduleReconnect() {
+  clearTimeout(state.reconnectTimer);
+  state.reconnectTimer = setTimeout(() => {
+    setConnStatus("warn", "Reconnecting...");
+    connect();
+    if (state.authenticated && state.username) {
+      // server is now offline so we cannot resume — bounce to auth screen
+    }
+  }, RECONNECT_DELAY_MS);
+}
+
+function send(obj) {
+  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+    state.ws.send(JSON.stringify(obj));
+    return true;
+  }
+  return false;
+}
+
+function startPingLoop() {
+  stopPingLoop();
+  state.pingTimer = setInterval(() => {
+    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+      state.lastPingAt = Date.now();
+      send({ type: "ping" });
+    }
+  }, PING_INTERVAL_MS);
+  state.healthTimer = setInterval(updateHealth, 1500);
+}
+function stopPingLoop() {
+  clearInterval(state.pingTimer);
+  clearInterval(state.healthTimer);
+  state.pingTimer = null;
+  state.healthTimer = null;
+}
+function updateHealth() {
+  if (!state.connected) { setConnStatus("bad", "Disconnected"); return; }
+  const now = Date.now();
+  if (state.lastPingAt > state.lastPongAt &&
+      now - state.lastPingAt > PING_TIMEOUT_MS) {
+    setConnStatus("warn", "Unstable");
+  } else {
+    setConnStatus("good", "Connected");
+  }
+}
+function setConnStatus(kind, text) {
+  connLight.classList.remove("good", "warn", "bad");
+  connLight.classList.add(kind);
+  connText.textContent = text;
+}
+
+//==============================================================
+// SERVER MESSAGE HANDLING
+//==============================================================
+function onMessage(ev) {
+  let data;
+  try { data = JSON.parse(ev.data); } catch (e) { return; }
+  switch (data.type) {
+    case "welcome": break;
+    case "pong": state.lastPongAt = Date.now(); break;
+    case "register_result": handleRegisterResult(data); break;
+    case "login_result":    handleLoginResult(data);    break;
+    case "hydrate":         handleHydrate(data);        break;
+    case "load_history_result": handleLoadHistoryResult(data); break;
+    case "message":         handleNewMessage(data.message); break;
+    case "reaction_update": handleReactionUpdate(data); break;
+    case "message_deleted": handleMessageDeleted(data); break;
+    case "user_joined":     handleUserJoined(data);     break;
+    case "user_left":       handleUserLeft(data);       break;
+    case "pending_users":   handlePendingUsers(data);   break;
+    case "game_invite_created":
+    case "game_invite_received":
+    case "game_invite_update":
+    case "game_invite_cancelled":
+    case "game_started":
+    case "game_state":
+    case "game_ended":
+    case "game_error":
+    case "game_event":      handleGameMessage(data); break;
+    case "error":           console.warn("server error:", data.message); break;
+  }
+}
+
+//==============================================================
+// AUTH
+//==============================================================
+loginForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  hideMsg(loginMsg);
+  if (!state.connected) {
+    showMsg(loginMsg, "Not connected to server", "error");
+    return;
+  }
+  const username = $("login-username").value.trim();
+  const password = $("login-password").value;
+  if (!username || !password) return;
+  showMsg(loginMsg, "Logging in...", "info");
+  send({ type: "login", username, password });
+});
+
+registerForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  hideMsg(registerMsg);
+  if (!state.connected) {
+    showMsg(registerMsg, "Not connected to server", "error");
+    return;
+  }
+  const username = $("reg-username").value.trim();
+  const password = $("reg-password").value;
+  if (!username || !password) return;
+  showMsg(registerMsg, "Submitting...", "info");
+  send({ type: "register", username, password });
+});
+
+function handleRegisterResult(data) {
+  if (!data.success) {
+    showMsg(registerMsg, data.message || "Registration failed", "error");
+    return;
+  }
+  if (data.auto_approved) {
+    showMsg(registerMsg, data.message + " You can now log in.", "success");
+  } else {
+    showMsg(registerMsg, data.message, "success");
+  }
+  document.querySelector('.tab[data-tab="login"]').click();
+  $("login-username").value = $("reg-username").value;
+  $("login-password").value = $("reg-password").value;
+}
+
+function handleLoginResult(data) {
+  if (!data.success) {
+    showMsg(loginMsg, data.message || "Login failed", "error");
+    return;
+  }
+  state.authenticated = true;
+  state.username = data.username;
+  state.role = data.role;
+  state.onlineUsers = data.online_users || [];
+  meName.textContent = state.username;
+  meRole.textContent = state.role.toUpperCase();
+  meRole.classList.toggle("user", state.role !== "admin");
+  adminPanel.style.display = state.role === "admin" ? "block" : "none";
+  authScreen.style.display = "none";
+  chatScreen.style.display = "flex";
+  msgInput.disabled = false;
+  attachBtn.disabled = false;
+  msgInput.focus();
+  renderOnline();
+}
+
+logoutBtn.addEventListener("click", () => {
+  state.shouldReconnect = false;
+  state.authenticated = false;
+  if (state.ws) state.ws.close();
+  setTimeout(() => location.reload(), 100);
+});
+
+//==============================================================
+// HYDRATE / HISTORY
+//==============================================================
+function handleHydrate(data) {
+  state.messages = data.messages || [];
+  state.hasMore = !!data.has_more;
+  renderAllMessages();
+  scrollToBottom();
+  updateLoadMoreVisibility();
+}
+
+function handleLoadHistoryResult(data) {
+  const prevScrollHeight = messagesEl.scrollHeight;
+  const prevScrollTop    = messagesEl.scrollTop;
+  state.messages = [...(data.messages || []), ...state.messages];
+  state.hasMore = !!data.has_more;
+  renderAllMessages();
+  const newScrollHeight = messagesEl.scrollHeight;
+  messagesEl.scrollTop = newScrollHeight - prevScrollHeight + prevScrollTop;
+  updateLoadMoreVisibility();
+}
+
+loadMoreBtn.addEventListener("click", () => {
+  if (!state.messages.length) return;
+  const oldestId = state.messages[0].id;
+  loadMoreBtn.disabled = true;
+  loadMoreBtn.textContent = "Loading...";
+  send({ type: "load_history", before_id: oldestId });
+  setTimeout(() => {
+    loadMoreBtn.disabled = false;
+    loadMoreBtn.textContent = "Load more messages";
+  }, 800);
+});
+
+messagesEl.addEventListener("scroll", updateLoadMoreVisibility);
+
+function updateLoadMoreVisibility() {
+  if (state.hasMore && messagesEl.scrollTop < 80) {
+    loadMoreWrap.style.display = "flex";
+  } else {
+    loadMoreWrap.style.display = "none";
+  }
+}
+
+//==============================================================
+// MESSAGE RENDERING
+//==============================================================
+function renderAllMessages() {
+  messagesList.innerHTML = "";
+  let prevUser = null;
+  let prevType = null;
+  for (const m of state.messages) {
+    if (!m.system && state.firstUnreadId !== null && m.id === state.firstUnreadId) {
+      messagesList.appendChild(renderUnreadDivider());
+      prevUser = null;
+      prevType = null;
+    }
+    const grouped = !m.system && m.username === prevUser && prevType === "msg";
+    messagesList.appendChild(renderMessage(m, grouped));
+    if (m.system) {
+      prevUser = null;
+      prevType = "system";
+    } else {
+      prevUser = m.username;
+      prevType = "msg";
+    }
+  }
+}
+
+function renderUnreadDivider() {
+  const d = document.createElement("div");
+  d.className = "unread-divider";
+  d.dataset.role = "unread-divider";
+  d.textContent = "New messages";
+  return d;
+}
+
+function renderMessage(m, grouped) {
+  if (m.system) {
+    const div = document.createElement("div");
+    div.className = "msg system";
+    div.textContent = m.content;
+    return div;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "msg" + (grouped ? " grouped" : "");
+  wrap.dataset.messageId = m.id;
+
+  const av = document.createElement("div");
+  av.className = "avatar";
+  av.textContent = (m.username || "?").charAt(0).toUpperCase();
+  av.style.background = colorFor(m.username);
+  wrap.appendChild(av);
+
+  const body = document.createElement("div");
+  body.className = "msg-body";
+
+  const head = document.createElement("div");
+  head.className = "msg-head";
+  const name = document.createElement("span");
+  name.className = "msg-name";
+  name.textContent = m.username;
+  const time = document.createElement("span");
+  time.className = "msg-time";
+  time.textContent = formatTime(m.created_at);
+  head.appendChild(name);
+  head.appendChild(time);
+  body.appendChild(head);
+
+  const text = document.createElement("div");
+  text.className = "msg-text" + (m.deleted ? " deleted" : "");
+  if (m.deleted) {
+    text.textContent = "[deleted message]";
+  } else {
+    text.innerHTML = renderTextWithEmoji(m.content);
+  }
+  if (!m.deleted && m.content) body.appendChild(text);
+  else if (m.deleted) body.appendChild(text);
+
+  if (!m.deleted && Array.isArray(m.images) && m.images.length) {
+    const imgs = document.createElement("div");
+    imgs.className = "msg-images";
+    for (const url of m.images) {
+      if (typeof url !== "string") continue;
+      const im = document.createElement("img");
+      im.loading = "lazy";
+      im.src = absoluteUrl(url);
+      im.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openLightbox(im.src);
+      });
+      imgs.appendChild(im);
+    }
+    body.appendChild(imgs);
+  }
+
+  const reactions = document.createElement("div");
+  reactions.className = "reactions";
+  reactions.dataset.messageId = m.id;
+  body.appendChild(reactions);
+  if (!m.deleted) updateReactionsEl(reactions, m.reactions || {});
+
+  if (!m.deleted) {
+    const actions = document.createElement("div");
+    actions.className = "msg-actions";
+    const addBtn = document.createElement("button");
+    addBtn.className = "msg-action-btn";
+    addBtn.title = "Add reaction";
+    addBtn.innerHTML = "😀<sup style=\"font-size:9px;margin-left:2px;\">+</sup>";
+    addBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEmojiPicker(m.id, addBtn);
+    });
+    actions.appendChild(addBtn);
+
+    const canDelete = m.username === state.username || state.role === "admin";
+    if (canDelete) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "msg-action-btn danger";
+      delBtn.title = m.username === state.username ? "Delete message" : "Delete (admin)";
+      delBtn.textContent = "🗑";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm("Delete this message?")) {
+          send({ type: "delete_message", message_id: m.id });
+        }
+      });
+      actions.appendChild(delBtn);
+    }
+    wrap.appendChild(actions);
+  }
+
+  wrap.appendChild(body);
+  if (!m.deleted) {
+    wrap.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      const sel = window.getSelection();
+      if (sel && sel.removeAllRanges) sel.removeAllRanges();
+      send({ type: "react", message_id: m.id, emoji: "❤️" });
+    });
+  }
+  return wrap;
+}
+
+function updateReactionsEl(container, reactions) {
+  container.innerHTML = "";
+  const entries = Object.entries(reactions || {}).filter(([, u]) => u && u.length);
+  if (!entries.length) return;
+  for (const [emoji, users] of entries) {
+    const mine = users.includes(state.username);
+    const chip = document.createElement("div");
+    chip.className = "reaction" + (mine ? " liked-by-me" : "");
+    const em = document.createElement("span");
+    em.className = "emoji";
+    em.textContent = emoji;
+    const ct = document.createElement("span");
+    ct.textContent = users.length;
+    chip.appendChild(em);
+    chip.appendChild(ct);
+    const tip = document.createElement("div");
+    tip.className = "tooltip";
+    tip.textContent = users.join(", ") + " reacted with " + emoji;
+    chip.appendChild(tip);
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const mid = parseInt(container.dataset.messageId, 10);
+      if (mid) send({ type: "react", message_id: mid, emoji });
+    });
+    container.appendChild(chip);
+  }
+}
+
+function handleNewMessage(m) {
+  state.messages.push(m);
+
+  const wasFirstUnread = state.hidden && state.firstUnreadId === null && m.username !== state.username;
+  noteIncomingForUnread(m);
+  if (wasFirstUnread) {
+    const existing = messagesList.querySelector('[data-role="unread-divider"]');
+    if (existing) existing.remove();
+    messagesList.appendChild(renderUnreadDivider());
+  }
+
+  const last = messagesList.lastElementChild;
+  const grouped = !wasFirstUnread &&
+                  last && last.dataset && last.dataset.messageId &&
+                  state.messages.length >= 2 &&
+                  state.messages[state.messages.length - 2].username === m.username;
+  const nearBottom = isNearBottom();
+  messagesList.appendChild(renderMessage(m, !!grouped));
+  if (nearBottom && !state.hidden) scrollToBottom();
+}
+
+function handleMessageDeleted(data) {
+  const mid = data.message_id;
+  const msg = state.messages.find((x) => x.id === mid);
+  if (!msg) return;
+  msg.deleted = true;
+  msg.content = "";
+  msg.reactions = {};
+  const oldEl = messagesList.querySelector(`.msg[data-message-id="${mid}"]`);
+  if (oldEl) {
+    const grouped = oldEl.classList.contains("grouped");
+    const newEl = renderMessage(msg, grouped);
+    oldEl.replaceWith(newEl);
+  }
+}
+
+function handleReactionUpdate(data) {
+  const mid = data.message_id;
+  const msg = state.messages.find((x) => x.id === mid);
+  if (msg) msg.reactions = data.reactions || {};
+  const el = messagesList.querySelector(`.reactions[data-message-id="${mid}"]`);
+  if (el) updateReactionsEl(el, data.reactions || {});
+}
+
+//==============================================================
+// JOIN / LEAVE
+//==============================================================
+function handleUserJoined(data) {
+  state.onlineUsers = data.online_users || [];
+  renderOnline();
+  appendSystemMessage(`${data.username} joined the chat`);
+}
+function handleUserLeft(data) {
+  state.onlineUsers = data.online_users || [];
+  renderOnline();
+  appendSystemMessage(`${data.username} left the chat`);
+}
+function appendSystemMessage(text) {
+  const nearBottom = isNearBottom();
+  const sysMsg = { system: true, content: text };
+  state.messages.push(sysMsg);
+  messagesList.appendChild(renderMessage(sysMsg, false));
+  if (nearBottom) scrollToBottom();
+}
+
+function renderOnline() {
+  onlineList.innerHTML = "";
+  onlineCount.textContent = `(${state.onlineUsers.length})`;
+  for (const u of state.onlineUsers) {
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    li.appendChild(dot);
+    const sp = document.createElement("span");
+    sp.textContent = u + (u === state.username ? " (you)" : "");
+    li.appendChild(sp);
+    onlineList.appendChild(li);
+  }
+}
+
+//==============================================================
+// ADMIN: PENDING APPROVALS
+//==============================================================
+function handlePendingUsers(data) {
+  state.pendingUsers = data.users || [];
+  renderPending();
+}
+
+function renderPending() {
+  pendingList.innerHTML = "";
+  if (!state.pendingUsers.length) {
+    const e = document.createElement("div");
+    e.className = "empty-state";
+    e.textContent = "No pending applications";
+    pendingList.appendChild(e);
+    return;
+  }
+  for (const u of state.pendingUsers) {
+    const row = document.createElement("div");
+    row.className = "pending-item";
+    const nm = document.createElement("span");
+    nm.textContent = u.username;
+    row.appendChild(nm);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const ok = document.createElement("button");
+    ok.className = "small";
+    ok.textContent = "Accept";
+    ok.addEventListener("click", () => send({ type: "admin_approve", username: u.username }));
+    const no = document.createElement("button");
+    no.className = "small danger";
+    no.textContent = "Deny";
+    no.addEventListener("click", () => send({ type: "admin_deny", username: u.username }));
+    actions.appendChild(ok);
+    actions.appendChild(no);
+    row.appendChild(actions);
+    pendingList.appendChild(row);
+  }
+}
+
+//==============================================================
+// MESSAGE INPUT, EMOJI AUTOCOMPLETE
+//==============================================================
+msgInput.addEventListener("keydown", (e) => {
+  if (state.emojiSuggest.open) {
+    if (e.key === "ArrowDown") { e.preventDefault(); moveSuggest(1);  return; }
+    if (e.key === "ArrowUp")   { e.preventDefault(); moveSuggest(-1); return; }
+    if (e.key === "Tab" || e.key === "Enter") {
+      e.preventDefault();
+      acceptSuggest();
+      return;
+    }
+    if (e.key === "Escape") { closeSuggest(); return; }
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+msgInput.addEventListener("input", () => {
+  updateEmojiSuggest();
+});
+
+function sendMessage() {
+  const v = msgInput.value.trim();
+  const images = state.attachments.map((a) => ({
+    name: a.name, mime: a.mime, data_b64: a.dataB64,
+  }));
+  if (!v && !images.length) return;
+  const ok = send({ type: "send_message", content: v, images });
+  if (!ok) return;
+  msgInput.value = "";
+  clearAttachments();
+  closeSuggest();
+}
+
+//----------------- Emoji helpers -----------------
+function renderTextWithEmoji(text) {
+  const esc = escapeHtml(text);
+  return esc.replace(/:([a-zA-Z0-9_+\-]+):/g, (full, name) => {
+    const em = EMOJI_MAP[name.toLowerCase()];
+    return em ? `<span class="emoji">${em}</span>` : full;
+  });
+}
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getCurrentEmojiTerm() {
+  const value = msgInput.value;
+  const pos = msgInput.selectionStart || value.length;
+  const upto = value.slice(0, pos);
+  const m = upto.match(/(^|\s):([a-zA-Z0-9_+\-]*)$/);
+  if (!m) return null;
+  return { term: m[2], start: pos - m[2].length - 1, end: pos };
+}
+
+function updateEmojiSuggest() {
+  const found = getCurrentEmojiTerm();
+  if (!found) { closeSuggest(); return; }
+  const term = found.term.toLowerCase();
+  if (term.length === 0) {
+    // show popular short ones
+    state.emojiSuggest.items = ["sob","joy","fire","heart","tada","skull","100","thinking","pray","sparkles"]
+      .filter((n) => EMOJI_MAP[n])
+      .map((n) => ({ name: n, emoji: EMOJI_MAP[n] }));
+  } else {
+    const startsWith = [], includes = [];
+    for (const n of EMOJI_NAMES) {
+      if (n.startsWith(term)) startsWith.push(n);
+      else if (n.includes(term)) includes.push(n);
+    }
+    state.emojiSuggest.items = [...startsWith, ...includes]
+      .slice(0, 8)
+      .map((n) => ({ name: n, emoji: EMOJI_MAP[n] }));
+  }
+  if (!state.emojiSuggest.items.length) { closeSuggest(); return; }
+  state.emojiSuggest.activeIndex = 0;
+  state.emojiSuggest.term = term;
+  renderSuggest();
+}
+
+function renderSuggest() {
+  emojiSuggest.innerHTML = "";
+  const header = document.createElement("div");
+  header.className = "suggest-header";
+  header.textContent = state.emojiSuggest.term
+    ? `Emoji matching :${state.emojiSuggest.term}`
+    : "Emoji";
+  emojiSuggest.appendChild(header);
+  state.emojiSuggest.items.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "suggest-item" + (i === state.emojiSuggest.activeIndex ? " active" : "");
+    row.innerHTML = `<span class="em">${it.emoji}</span><span class="nm">:${it.name}:</span>
+      <span class="hint">Tab</span>`;
+    row.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      state.emojiSuggest.activeIndex = i;
+      acceptSuggest();
+    });
+    emojiSuggest.appendChild(row);
+  });
+  emojiSuggest.style.display = "block";
+  state.emojiSuggest.open = true;
+}
+
+function moveSuggest(delta) {
+  const n = state.emojiSuggest.items.length;
+  if (!n) return;
+  state.emojiSuggest.activeIndex = (state.emojiSuggest.activeIndex + delta + n) % n;
+  renderSuggest();
+}
+
+function acceptSuggest() {
+  const it = state.emojiSuggest.items[state.emojiSuggest.activeIndex];
+  if (!it) return;
+  const found = getCurrentEmojiTerm();
+  if (!found) { closeSuggest(); return; }
+  const before = msgInput.value.slice(0, found.start);
+  const after  = msgInput.value.slice(found.end);
+  const insert = it.emoji + " ";
+  msgInput.value = before + insert + after;
+  const pos = (before + insert).length;
+  msgInput.setSelectionRange(pos, pos);
+  closeSuggest();
+  msgInput.focus();
+}
+
+function closeSuggest() {
+  state.emojiSuggest.open = false;
+  state.emojiSuggest.items = [];
+  state.emojiSuggest.activeIndex = 0;
+  emojiSuggest.style.display = "none";
+}
+
+//==============================================================
+// MISC HELPERS
+//==============================================================
+function isNearBottom() {
+  return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 120;
+}
+function scrollToBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function formatTime(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return sameDay ? `Today at ${time}` : `${d.toLocaleDateString()} ${time}`;
+  } catch (e) { return ""; }
+}
+function colorFor(name) {
+  const palette = [
+    "#7c5cff", "#4ade80", "#f59e0b", "#f87171", "#06b6d4",
+    "#ec4899", "#a78bfa", "#22d3ee", "#84cc16", "#fb923c",
+  ];
+  let h = 0;
+  for (let i = 0; i < (name || "").length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+
+//==============================================================
+// IMAGE ATTACHMENTS · DRAG/DROP · PASTE · LIGHTBOX
+//==============================================================
+function absoluteUrl(path) {
+  if (!path) return "";
+  if (/^https?:/i.test(path) || /^data:/i.test(path)) return path;
+  return HTTP_BASE + path;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload  = () => {
+      const result = r.result || "";
+      const i = result.indexOf(",");
+      resolve(i >= 0 ? result.slice(i + 1) : "");
+    };
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+async function addAttachments(files) {
+  if (!files || !files.length) return;
+  for (const f of files) {
+    if (state.attachments.length >= MAX_ATTACHMENTS) {
+      flashAttachWarning(`Max ${MAX_ATTACHMENTS} attachments per message`);
+      break;
+    }
+    if (!ALLOWED_IMAGE_MIMES.has(f.type)) {
+      flashAttachWarning(`Unsupported file type: ${f.type || f.name}`);
+      continue;
+    }
+    if (f.size > MAX_IMAGE_BYTES) {
+      flashAttachWarning(`${f.name || "image"} is larger than 8 MB`);
+      continue;
+    }
+    try {
+      const b64 = await fileToBase64(f);
+      const previewUrl = URL.createObjectURL(f);
+      state.attachments.push({
+        id: Math.random().toString(36).slice(2),
+        name: f.name || "image",
+        mime: f.type,
+        dataB64: b64,
+        previewUrl,
+      });
+    } catch (e) {
+      flashAttachWarning("Failed to read image");
+    }
+  }
+  renderAttachPreviews();
+}
+
+let attachWarnTimer = null;
+function flashAttachWarning(text) {
+  msgInput.placeholder = "⚠ " + text;
+  clearTimeout(attachWarnTimer);
+  attachWarnTimer = setTimeout(() => {
+    msgInput.placeholder = "Message #flakes  ·  drag/drop or paste images  ·  :sob: :fire: :tada:";
+  }, 2200);
+}
+
+function renderAttachPreviews() {
+  attachPreviews.innerHTML = "";
+  for (const a of state.attachments) {
+    const wrap = document.createElement("div");
+    wrap.className = "attach-preview";
+    const im = document.createElement("img");
+    im.src = a.previewUrl;
+    wrap.appendChild(im);
+    const x = document.createElement("button");
+    x.className = "x";
+    x.type = "button";
+    x.textContent = "×";
+    x.title = "Remove";
+    x.addEventListener("click", (e) => {
+      e.preventDefault();
+      removeAttachment(a.id);
+    });
+    wrap.appendChild(x);
+    attachPreviews.appendChild(wrap);
+  }
+}
+
+function removeAttachment(id) {
+  const i = state.attachments.findIndex((a) => a.id === id);
+  if (i < 0) return;
+  const a = state.attachments[i];
+  try { URL.revokeObjectURL(a.previewUrl); } catch (e) {}
+  state.attachments.splice(i, 1);
+  renderAttachPreviews();
+}
+
+function clearAttachments() {
+  for (const a of state.attachments) {
+    try { URL.revokeObjectURL(a.previewUrl); } catch (e) {}
+  }
+  state.attachments = [];
+  renderAttachPreviews();
+}
+
+attachBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  addAttachments(Array.from(fileInput.files || []));
+  fileInput.value = "";
+});
+
+msgInput.addEventListener("paste", (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  const files = [];
+  for (const it of items) {
+    if (it.kind === "file") {
+      const f = it.getAsFile();
+      if (f && ALLOWED_IMAGE_MIMES.has(f.type)) files.push(f);
+    }
+  }
+  if (files.length) {
+    e.preventDefault();
+    addAttachments(files);
+  }
+});
+
+// --- Drag and drop on the chat body ---
+let dragDepth = 0;
+let dropOverlayEl = null;
+function showDropOverlay() {
+  if (dropOverlayEl) return;
+  dropOverlayEl = document.createElement("div");
+  dropOverlayEl.className = "drop-overlay";
+  dropOverlayEl.textContent = "Drop images to attach";
+  chatBody.appendChild(dropOverlayEl);
+}
+function hideDropOverlay() {
+  if (dropOverlayEl && dropOverlayEl.parentNode) dropOverlayEl.parentNode.removeChild(dropOverlayEl);
+  dropOverlayEl = null;
+}
+function isFileDrag(e) {
+  return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+}
+window.addEventListener("dragenter", (e) => {
+  if (!state.authenticated || !isFileDrag(e)) return;
+  dragDepth++;
+  showDropOverlay();
+});
+window.addEventListener("dragover", (e) => {
+  if (!state.authenticated || !isFileDrag(e)) return;
+  e.preventDefault();
+});
+window.addEventListener("dragleave", (e) => {
+  if (!isFileDrag(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) hideDropOverlay();
+});
+window.addEventListener("drop", (e) => {
+  if (!state.authenticated || !isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  hideDropOverlay();
+  const files = Array.from(e.dataTransfer.files || []).filter((f) => ALLOWED_IMAGE_MIMES.has(f.type));
+  if (files.length) addAttachments(files);
+});
+
+// --- Lightbox ---
+function openLightbox(src) {
+  closeLightbox();
+  const lb = document.createElement("div");
+  lb.className = "lightbox";
+  const im = document.createElement("img");
+  im.src = src;
+  lb.appendChild(im);
+  const cl = document.createElement("button");
+  cl.className = "close";
+  cl.textContent = "×";
+  cl.title = "Close (Esc)";
+  lb.appendChild(cl);
+  lb.addEventListener("click", closeLightbox);
+  document.body.appendChild(lb);
+}
+function closeLightbox() {
+  const lb = document.querySelector(".lightbox");
+  if (lb && lb.parentNode) lb.parentNode.removeChild(lb);
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeLightbox();
+});
+
+//==============================================================
+// CAMERA · WEBCAM CAPTURE MODAL
+//==============================================================
+const fabCamera = document.getElementById("fab-camera");
+
+let cameraState = null; // { backdrop, stream, video, canvas, captured, captionInput }
+
+fabCamera.addEventListener("click", () => {
+  if (!state.authenticated) return;
+  openCameraModal();
+});
+
+async function openCameraModal() {
+  closeCameraModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop) closeCameraModal();
+  });
+
+  const modal = document.createElement("div");
+  modal.className = "modal";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h = document.createElement("h2");
+  h.textContent = "Take a photo";
+  const x = document.createElement("button");
+  x.className = "modal-close";
+  x.textContent = "×";
+  x.title = "Close";
+  x.addEventListener("click", closeCameraModal);
+  header.appendChild(h);
+  header.appendChild(x);
+
+  const stage = document.createElement("div");
+  stage.className = "webcam-stage";
+
+  const video = document.createElement("video");
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = true;
+  stage.appendChild(video);
+
+  const stillImg = document.createElement("img");
+  stillImg.style.display = "none";
+  stage.appendChild(stillImg);
+
+  const errEl = document.createElement("div");
+  errEl.className = "webcam-error";
+  errEl.style.display = "none";
+  stage.appendChild(errEl);
+
+  const actions = document.createElement("div");
+  actions.className = "webcam-actions";
+
+  const captionInput = document.createElement("input");
+  captionInput.type = "text";
+  captionInput.className = "caption";
+  captionInput.placeholder = "Add a caption (optional)…";
+  captionInput.style.display = "none";
+
+  const captureBtn = document.createElement("button");
+  captureBtn.textContent = "Capture";
+  captureBtn.disabled = true;
+
+  const retakeBtn = document.createElement("button");
+  retakeBtn.className = "secondary";
+  retakeBtn.textContent = "Retake";
+  retakeBtn.style.display = "none";
+
+  const sendBtn = document.createElement("button");
+  sendBtn.textContent = "Send";
+  sendBtn.style.display = "none";
+
+  actions.appendChild(captionInput);
+  actions.appendChild(captureBtn);
+  actions.appendChild(retakeBtn);
+  actions.appendChild(sendBtn);
+
+  modal.appendChild(header);
+  modal.appendChild(stage);
+  modal.appendChild(actions);
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+
+  cameraState = {
+    backdrop, stream: null, video, captured: null, captionInput,
+  };
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showWebcamError(errEl, "Webcam is not available in this browser.");
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+      audio: false,
+    });
+    if (!cameraState) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    cameraState.stream = stream;
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    captureBtn.disabled = false;
+  } catch (err) {
+    let msg = "Could not access webcam.";
+    if (err && err.name === "NotAllowedError") msg = "Camera permission denied.";
+    else if (err && err.name === "NotFoundError") msg = "No camera found on this device.";
+    else if (err && err.message) msg += " " + err.message;
+    showWebcamError(errEl, msg);
+  }
+
+  captureBtn.addEventListener("click", () => {
+    if (!cameraState || !cameraState.stream) return;
+    const w = video.videoWidth || 1280;
+    const h = video.videoHeight || 720;
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+    const dataUrl = c.toDataURL("image/jpeg", 0.9);
+
+    stillImg.src = dataUrl;
+    stillImg.style.display = "";
+    video.style.display = "none";
+
+    cameraState.captured = dataUrl;
+
+    captureBtn.style.display = "none";
+    retakeBtn.style.display = "";
+    sendBtn.style.display = "";
+    captionInput.style.display = "";
+    setTimeout(() => captionInput.focus(), 0);
+  });
+
+  retakeBtn.addEventListener("click", () => {
+    if (!cameraState) return;
+    cameraState.captured = null;
+    stillImg.style.display = "none";
+    stillImg.removeAttribute("src");
+    video.style.display = "";
+    video.play().catch(() => {});
+
+    captureBtn.style.display = "";
+    retakeBtn.style.display = "none";
+    sendBtn.style.display = "none";
+    captionInput.style.display = "none";
+    captionInput.value = "";
+  });
+
+  sendBtn.addEventListener("click", () => {
+    if (!cameraState || !cameraState.captured) return;
+    sendCapturedPhoto(cameraState.captured, captionInput.value.trim());
+    closeCameraModal();
+  });
+
+  captionInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+}
+
+function showWebcamError(errEl, message) {
+  errEl.textContent = message;
+  errEl.style.display = "";
+}
+
+function closeCameraModal() {
+  if (!cameraState) return;
+  if (cameraState.stream) {
+    cameraState.stream.getTracks().forEach((t) => t.stop());
+  }
+  if (cameraState.backdrop && cameraState.backdrop.parentNode) {
+    cameraState.backdrop.parentNode.removeChild(cameraState.backdrop);
+  }
+  cameraState = null;
+}
+
+function sendCapturedPhoto(dataUrl, caption) {
+  const b64 = dataUrl.split(",", 2)[1] || "";
+  if (!b64) return;
+  const payload = {
+    type: "send_message",
+    content: caption || "",
+    images: [{ name: `webcam-${Date.now()}.jpg`, mime: "image/jpeg", data_b64: b64 }],
+  };
+  send(payload);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && cameraState) closeCameraModal();
+});
+
+//==============================================================
+// GAMES (GamePigeon-style: Word Hunt, 8-Ball, Chess, Wordle, UNO)
+//==============================================================
+const GAME_META = {
+  word_hunt:  { name: "Word Hunt",        icon: "🔤", desc: "Trace as many words as you can in 80 seconds." },
+  eight_ball: { name: "8-Ball Pool",      icon: "🎱", desc: "Classic billiards. Drag from cue ball to aim." },
+  chess:      { name: "Chess",            icon: "♟️", desc: "Full chess with castling, en-passant and promotion." },
+  wordle:     { name: "Wordle Challenge", icon: "🟩", desc: "Each picks a 5-letter word for the other to guess." },
+  uno:        { name: "UNO",              icon: "🃏", desc: "2–4 players. Match color or number, use specials." },
+};
+
+const gameState = {
+  invites: {},        // invite_id -> invite obj (incoming OR outgoing)
+  activeGame: null,   // { id, type, state }
+  modal: null,        // active game modal backdrop element
+  modalKind: null,    // "launcher" | "picker" | "game"
+};
+
+const fabGames = document.getElementById("fab-games");
+const invitePanel = document.getElementById("invite-panel");
+
+fabGames.addEventListener("click", () => {
+  if (!state.authenticated) return;
+  openGameLauncher();
+});
+
+// -- modal helpers --
+function openModal(kind, contentBuilder, opts) {
+  closeModal();
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.addEventListener("click", (e) => {
+    if (e.target === backdrop && (!opts || opts.dismissable !== false)) closeModal();
+  });
+  const modal = document.createElement("div");
+  modal.className = "modal game-modal";
+  contentBuilder(modal, backdrop);
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  gameState.modal = backdrop;
+  gameState.modalKind = kind;
+}
+function closeModal() {
+  if (gameState.modal && gameState.modal.parentNode) {
+    gameState.modal.parentNode.removeChild(gameState.modal);
+  }
+  gameState.modal = null;
+  gameState.modalKind = null;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && gameState.modal && gameState.modalKind !== "game") closeModal();
+});
+
+// -- launcher: pick a game --
+function openGameLauncher() {
+  openModal("launcher", (modal) => {
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    const h = document.createElement("h2");
+    h.textContent = "Pick a game";
+    const x = document.createElement("button");
+    x.className = "modal-close";
+    x.textContent = "×";
+    x.addEventListener("click", closeModal);
+    header.appendChild(h); header.appendChild(x);
+    modal.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "games-grid";
+    for (const [type, meta] of Object.entries(GAME_META)) {
+      const card = document.createElement("div");
+      card.className = "game-card";
+      card.innerHTML = `<div class="icon">${meta.icon}</div>
+        <div class="name">${meta.name}</div>
+        <div class="desc">${meta.desc}</div>`;
+      card.addEventListener("click", () => openOpponentPicker(type));
+      grid.appendChild(card);
+    }
+    modal.appendChild(grid);
+
+    // Also list current invites & active game shortcut
+    if (gameState.activeGame) {
+      const banner = document.createElement("div");
+      banner.className = "game-banner";
+      banner.textContent = "You have an active game in progress.";
+      const btn = document.createElement("button");
+      btn.style.marginLeft = "10px";
+      btn.textContent = "Resume";
+      btn.addEventListener("click", () => openGameView());
+      banner.appendChild(btn);
+      modal.appendChild(banner);
+    }
+  });
+}
+
+// -- opponent picker for the chosen game --
+function openOpponentPicker(type) {
+  const meta = GAME_META[type];
+  const multi = (type === "uno");
+  openModal("picker", (modal) => {
+    const header = document.createElement("div");
+    header.className = "modal-header";
+    const h = document.createElement("h2");
+    h.textContent = `${meta.icon}  ${meta.name} — pick ${multi ? "opponents" : "an opponent"}`;
+    const x = document.createElement("button");
+    x.className = "modal-close";
+    x.textContent = "×";
+    x.addEventListener("click", () => openGameLauncher());
+    header.appendChild(h); header.appendChild(x);
+    modal.appendChild(header);
+
+    const picker = document.createElement("div");
+    picker.className = "opp-picker";
+    const selected = new Set();
+    const candidates = (state.onlineUsers || []).filter((u) => u !== state.username);
+    if (!candidates.length) {
+      const e = document.createElement("div");
+      e.className = "empty-state";
+      e.textContent = "No other users are online.";
+      picker.appendChild(e);
+    }
+    for (const u of candidates) {
+      const row = document.createElement("div");
+      row.className = "opp-row";
+      const n = document.createElement("span");
+      n.className = "name";
+      n.textContent = u;
+      row.appendChild(n);
+      row.addEventListener("click", () => {
+        if (multi) {
+          if (selected.has(u)) { selected.delete(u); row.classList.remove("selected"); }
+          else { selected.add(u); row.classList.add("selected"); }
+        } else {
+          send({ type: "game_invite_create", game: type, to: [u] });
+          closeModal();
+        }
+      });
+      picker.appendChild(row);
+    }
+    modal.appendChild(picker);
+
+    if (multi) {
+      const actions = document.createElement("div");
+      actions.className = "webcam-actions";
+      const back = document.createElement("button");
+      back.className = "secondary";
+      back.textContent = "Back";
+      back.addEventListener("click", () => openGameLauncher());
+      const go = document.createElement("button");
+      go.textContent = "Send invites";
+      go.addEventListener("click", () => {
+        if (!selected.size) return;
+        send({ type: "game_invite_create", game: type, to: Array.from(selected) });
+        closeModal();
+      });
+      actions.appendChild(back);
+      actions.appendChild(go);
+      modal.appendChild(actions);
+    }
+  });
+}
+
+// -- invite cards (notifications panel) --
+function renderInvites() {
+  invitePanel.innerHTML = "";
+  for (const inv of Object.values(gameState.invites)) {
+    const card = document.createElement("div");
+    card.className = "invite-card";
+    const t = document.createElement("div");
+    t.className = "title";
+    const meta = GAME_META[inv.game] || { name: inv.game, icon: "🎮" };
+    if (inv.from === state.username) {
+      t.innerHTML = `${meta.icon} <b>${meta.name}</b> · waiting on ${inv.to.length} player${inv.to.length===1?"":"s"}<br>
+        <small>Accepted: ${inv.accepted.join(", ") || "none"}</small>`;
+    } else {
+      t.innerHTML = `${meta.icon} <b>${inv.from}</b> invited you to <b>${meta.name}</b>`;
+    }
+    card.appendChild(t);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    if (inv.from === state.username) {
+      if (inv.game === "uno" && inv.accepted.length >= 1) {
+        const start = document.createElement("button");
+        start.className = "small";
+        start.textContent = "Start";
+        start.addEventListener("click", () => send({ type: "game_invite_start", invite_id: inv.id }));
+        actions.appendChild(start);
+      }
+      const cancel = document.createElement("button");
+      cancel.className = "small secondary";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => send({ type: "game_invite_cancel", invite_id: inv.id }));
+      actions.appendChild(cancel);
+    } else {
+      const accept = document.createElement("button");
+      accept.className = "small";
+      accept.textContent = "Accept";
+      accept.addEventListener("click", () => send({ type: "game_invite_accept", invite_id: inv.id }));
+      const decline = document.createElement("button");
+      decline.className = "small secondary";
+      decline.textContent = "Decline";
+      decline.addEventListener("click", () => {
+        send({ type: "game_invite_decline", invite_id: inv.id });
+        delete gameState.invites[inv.id];
+        renderInvites();
+      });
+      actions.appendChild(accept);
+      actions.appendChild(decline);
+    }
+    card.appendChild(actions);
+    invitePanel.appendChild(card);
+  }
+}
+
+// -- incoming server messages --
+function handleGameMessage(data) {
+  switch (data.type) {
+    case "game_invite_created":
+    case "game_invite_received":
+    case "game_invite_update":
+      gameState.invites[data.invite.id] = data.invite;
+      renderInvites();
+      break;
+    case "game_invite_cancelled":
+      delete gameState.invites[data.invite_id];
+      renderInvites();
+      break;
+    case "game_started":
+      gameState.activeGame = { id: data.game_id, type: data.game_type, state: data.state };
+      // remove any invites that produced this game
+      for (const id of Object.keys(gameState.invites)) {
+        const inv = gameState.invites[id];
+        if (inv.game === data.game_type) delete gameState.invites[id];
+      }
+      renderInvites();
+      openGameView();
+      break;
+    case "game_state":
+      if (gameState.activeGame && gameState.activeGame.id === data.game_id) {
+        gameState.activeGame.state = data.state;
+        rerenderGameView();
+      }
+      break;
+    case "game_ended":
+      if (gameState.activeGame && gameState.activeGame.id === data.game_id) {
+        gameState.activeGame.state = data.state;
+        rerenderGameView();
+      }
+      break;
+    case "game_error":
+      showGameBanner(data.message, "err");
+      break;
+    case "game_event":
+      showGameBanner(data.message, "ok");
+      break;
+  }
+}
+
+function showGameBanner(text, kind) {
+  const banner = document.querySelector(".game-banner.live");
+  if (banner) {
+    banner.className = `game-banner live ${kind || ""}`;
+    banner.textContent = text;
+    clearTimeout(banner._t);
+    banner._t = setTimeout(() => { banner.textContent = ""; banner.className = "game-banner live"; }, 2500);
+  } else {
+    // fallback: warn placeholder
+    flashAttachWarning(text);
+  }
+}
+
+function sendGameAction(action) {
+  if (!gameState.activeGame) return;
+  send({ type: "game_action", game_id: gameState.activeGame.id, action });
+}
+
+// -- open the active game in a modal --
+function openGameView() {
+  if (!gameState.activeGame) return;
+  openModal("game", (modal) => {
+    modal.dataset.gameId = gameState.activeGame.id;
+    renderGameContent(modal);
+  }, { dismissable: false });
+}
+
+function rerenderGameView() {
+  if (!gameState.modal || gameState.modalKind !== "game") {
+    if (gameState.activeGame) openGameView();
+    return;
+  }
+  const modal = gameState.modal.querySelector(".modal");
+  if (modal) renderGameContent(modal);
+}
+
+function renderGameContent(modal) {
+  modal.innerHTML = "";
+  const g = gameState.activeGame;
+  if (!g) return;
+  const meta = GAME_META[g.type];
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h = document.createElement("h2");
+  h.textContent = `${meta.icon}  ${meta.name}`;
+  const close = document.createElement("button");
+  close.className = "modal-close";
+  close.textContent = "×";
+  close.title = "Hide (game continues)";
+  close.addEventListener("click", () => closeModal());
+  header.appendChild(h);
+  header.appendChild(close);
+  modal.appendChild(header);
+
+  const gh = document.createElement("div");
+  gh.className = "game-header";
+  const info = document.createElement("div");
+  info.className = "info";
+  info.innerHTML = `Players: <b>${g.state.players.join(", ")}</b>`;
+  gh.appendChild(info);
+  const leave = document.createElement("button");
+  leave.className = "small secondary";
+  leave.textContent = g.state.ended ? "Close" : "Forfeit";
+  leave.addEventListener("click", () => {
+    if (g.state.ended) {
+      gameState.activeGame = null;
+      closeModal();
+    } else {
+      if (confirm("Forfeit this game?")) {
+        send({ type: "game_leave", game_id: g.id });
+      }
+    }
+  });
+  gh.appendChild(leave);
+  modal.appendChild(gh);
+
+  const live = document.createElement("div");
+  live.className = "game-banner live";
+  modal.appendChild(live);
+
+  const body = document.createElement("div");
+  modal.appendChild(body);
+
+  if (g.state.ended) {
+    const end = document.createElement("div");
+    end.className = "game-banner ok";
+    end.style.marginBottom = "10px";
+    end.textContent = g.state.winner
+      ? `🏆 ${g.state.winner} wins. ${g.state.result_text || ""}`
+      : `🤝 ${g.state.result_text || "Game over"}`;
+    body.appendChild(end);
+  }
+
+  switch (g.type) {
+    case "wordle":     renderWordle(body, g.state); break;
+    case "word_hunt":  renderWordHunt(body, g.state); break;
+    case "chess":      renderChess(body, g.state); break;
+    case "uno":        renderUno(body, g.state); break;
+    case "eight_ball": renderPool(body, g.state); break;
+  }
+}
+
+// ===========================================================================
+// WORDLE renderer
+// ===========================================================================
+function renderWordle(body, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "wordle-wrap";
+
+  if (s.phase === "setup") {
+    const card = document.createElement("div");
+    card.style.textAlign = "center";
+    card.style.padding = "20px";
+    const both = s.secrets_set || {};
+    const meSet = !!both[state.username];
+    const opp = s.players.find((p) => p !== state.username);
+    const oppSet = !!both[opp];
+    card.innerHTML = `<h3>Pick a 5-letter word for your opponent</h3>
+      <p style="color:var(--text-dim);font-size:13px">Your word: <b>${meSet ? "✓ submitted" : "not yet"}</b>
+        · Opponent: <b>${oppSet ? "✓ ready" : "waiting"}</b></p>`;
+    if (!meSet) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.maxLength = 5;
+      input.style.textTransform = "uppercase";
+      input.style.width = "180px";
+      input.placeholder = "5-letter word";
+      const btn = document.createElement("button");
+      btn.textContent = "Submit secret";
+      btn.style.marginLeft = "6px";
+      btn.addEventListener("click", () => {
+        const w = input.value.trim().toLowerCase();
+        if (w.length !== 5) return;
+        sendGameAction({ kind: "set_secret", word: w });
+      });
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
+      card.appendChild(input);
+      card.appendChild(btn);
+    } else if (!oppSet) {
+      const wait = document.createElement("div");
+      wait.style.marginTop = "10px";
+      wait.style.color = "var(--text-dim)";
+      wait.textContent = "Waiting for opponent to choose a word…";
+      card.appendChild(wait);
+    }
+    wrap.appendChild(card);
+    body.appendChild(wrap);
+    return;
+  }
+
+  const mySide = document.createElement("div");
+  mySide.className = "wordle-side";
+  mySide.innerHTML = `<h3>Your board</h3>`;
+  mySide.appendChild(buildWordleGrid(s.my_guesses, s.max_guesses));
+  if (s.phase === "playing" && !s.my_solved && (s.my_guesses || []).length < s.max_guesses) {
+    const ig = document.createElement("div");
+    ig.className = "wordle-input";
+    const input = document.createElement("input");
+    input.type = "text"; input.maxLength = 5; input.placeholder = "guess";
+    const btn = document.createElement("button");
+    btn.textContent = "Guess";
+    btn.addEventListener("click", () => {
+      const w = input.value.trim().toLowerCase();
+      if (w.length !== 5) return;
+      sendGameAction({ kind: "guess", word: w });
+      input.value = "";
+    });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") btn.click(); });
+    ig.appendChild(input); ig.appendChild(btn);
+    mySide.appendChild(ig);
+    setTimeout(() => input.focus(), 0);
+  } else if (s.my_solved) {
+    const ok = document.createElement("div"); ok.style.color = "var(--good)"; ok.style.marginTop="8px"; ok.textContent="✓ Solved!"; mySide.appendChild(ok);
+  }
+  wrap.appendChild(mySide);
+
+  const oppSide = document.createElement("div");
+  oppSide.className = "wordle-side";
+  oppSide.innerHTML = `<h3>${s.opp_name || "Opponent"}</h3>`;
+  oppSide.appendChild(buildWordleGrid(s.opp_guesses, s.max_guesses));
+  if (s.opp_solved) {
+    const ok = document.createElement("div"); ok.style.color = "var(--good)"; ok.style.marginTop="8px"; ok.textContent="✓ Solved!"; oppSide.appendChild(ok);
+  }
+  wrap.appendChild(oppSide);
+
+  if (s.phase === "ended" && s.secrets) {
+    const secrets = document.createElement("div");
+    secrets.style.gridColumn = "1/-1";
+    secrets.style.width = "100%";
+    secrets.style.textAlign = "center";
+    secrets.style.marginTop = "12px";
+    secrets.innerHTML = `<div class="game-banner">Words were: ${s.players.map((p) => `<b>${p}</b>: ${(s.secrets[p]||"").toUpperCase()}`).join(" · ")}</div>`;
+    body.appendChild(wrap);
+    body.appendChild(secrets);
+    return;
+  }
+
+  body.appendChild(wrap);
+}
+
+function buildWordleGrid(guesses, maxGuesses) {
+  const grid = document.createElement("div");
+  grid.className = "wordle-grid";
+  guesses = guesses || [];
+  for (let r = 0; r < maxGuesses; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const row = guesses[r];
+      if (row) {
+        const letter = row.word ? row.word[c] : "";
+        if (letter) cell.textContent = letter;
+        else cell.classList.add("opp");
+        if (row.score && row.score[c]) cell.classList.add(row.score[c]);
+      }
+      grid.appendChild(cell);
+    }
+  }
+  return grid;
+}
+
+// ===========================================================================
+// WORD HUNT renderer
+// ===========================================================================
+const whState = {
+  current: [],  // list of cell indices in path
+  message: "",
+  messageKind: "",
+  timerId: null,
+};
+
+function renderWordHunt(body, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "wh-wrap";
+  whState.message = whState.message || "";
+
+  const board = document.createElement("div");
+  board.className = "wh-board";
+  for (let i = 0; i < 16; i++) {
+    const cell = document.createElement("div");
+    cell.className = "wh-cell";
+    cell.dataset.idx = String(i);
+    cell.textContent = s.board[i];
+    board.appendChild(cell);
+  }
+  wrap.appendChild(board);
+
+  const side = document.createElement("div");
+  side.className = "wh-side";
+
+  const timer = document.createElement("div");
+  timer.className = "wh-timer";
+  side.appendChild(timer);
+
+  const me = state.username;
+  const opp = s.players.find((p) => p !== me);
+  const scoreRow = document.createElement("div");
+  scoreRow.className = "row";
+  scoreRow.innerHTML = `<span>You</span><span>${s.scores[me] || 0}</span>`;
+  side.appendChild(scoreRow);
+  const oppRow = document.createElement("div");
+  oppRow.className = "row";
+  oppRow.innerHTML = `<span>${opp}</span><span>${s.scores[opp] || 0}</span>`;
+  side.appendChild(oppRow);
+
+  const cur = document.createElement("div");
+  cur.className = "wh-current" + (whState.messageKind ? " " + whState.messageKind : "");
+  cur.textContent = whState.message || "Trace letters to form a word";
+  side.appendChild(cur);
+
+  const myWordsHdr = document.createElement("div");
+  myWordsHdr.style.fontSize = "12px";
+  myWordsHdr.style.color = "var(--text-dim)";
+  myWordsHdr.style.marginTop = "10px";
+  myWordsHdr.textContent = s.ended ? "All words" : "Your words";
+  side.appendChild(myWordsHdr);
+
+  const list = document.createElement("div");
+  list.className = "wh-word-list";
+  if (s.ended && s.all_words) {
+    const meWords = s.all_words[me] || [];
+    const oppWords = s.all_words[opp] || [];
+    list.innerHTML = `<div><b>You:</b> ${meWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>
+      <div style="margin-top:6px"><b>${opp}:</b> ${oppWords.map((w)=>`<span class="w">${w}</span>`).join("") || "<i>none</i>"}</div>`;
+  } else {
+    list.innerHTML = (s.my_words || []).map((w)=>`<span class="w">${w}</span>`).join("");
+  }
+  side.appendChild(list);
+
+  wrap.appendChild(side);
+  body.appendChild(wrap);
+
+  // timer ticking
+  function updateTimer() {
+    const remaining = Math.max(0, (s.duration || 80) - (s.elapsed || 0) - ((Date.now() - tickStart)/1000));
+    const m = Math.floor(remaining / 60);
+    const sec = Math.floor(remaining % 60);
+    timer.textContent = s.ended ? "Time!" : `${m}:${String(sec).padStart(2,"0")}`;
+  }
+  const tickStart = Date.now();
+  if (whState.timerId) clearInterval(whState.timerId);
+  if (!s.ended) {
+    whState.timerId = setInterval(updateTimer, 250);
+  }
+  updateTimer();
+
+  // pointer-based tracing
+  whState.current = [];
+  function cellAtPoint(x, y) {
+    const el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    if (el.classList.contains("wh-cell")) return el;
+    return null;
+  }
+  function rectCenter(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+  function visit(idx) {
+    if (whState.current.length === 0) {
+      whState.current.push(idx);
+    } else {
+      const last = whState.current[whState.current.length - 1];
+      if (idx === last) return;
+      // if already visited, allow backtracking by one
+      const existing = whState.current.indexOf(idx);
+      if (existing !== -1) {
+        if (existing === whState.current.length - 2) whState.current.pop();
+        return;
+      }
+      const lr = Math.floor(last / 4), lc = last % 4;
+      const r = Math.floor(idx / 4), c = idx % 4;
+      if (Math.max(Math.abs(lr - r), Math.abs(lc - c)) !== 1) return;
+      whState.current.push(idx);
+    }
+    paint();
+  }
+  function paint() {
+    board.querySelectorAll(".wh-cell").forEach((el) => el.classList.remove("active", "last"));
+    whState.current.forEach((idx, i) => {
+      const el = board.querySelector(`.wh-cell[data-idx="${idx}"]`);
+      el.classList.add("active");
+      if (i === whState.current.length - 1) el.classList.add("last");
+    });
+    const word = whState.current.map((i) => s.board[i]).join("").toLowerCase();
+    cur.textContent = word.toUpperCase() || "Trace letters to form a word";
+    cur.className = "wh-current";
+  }
+  function commit() {
+    if (whState.current.length >= 3) {
+      const word = whState.current.map((i) => s.board[i]).join("").toLowerCase();
+      sendGameAction({ kind: "submit", word });
+    }
+    whState.current = [];
+    board.querySelectorAll(".wh-cell").forEach((el) => el.classList.remove("active", "last"));
+  }
+
+  let tracking = false;
+  function onDown(e) {
+    if (s.ended) return;
+    e.preventDefault();
+    tracking = true;
+    whState.current = [];
+    const p = e.touches ? e.touches[0] : e;
+    const c = cellAtPoint(p.clientX, p.clientY);
+    if (c) visit(parseInt(c.dataset.idx, 10));
+  }
+  function onMove(e) {
+    if (!tracking) return;
+    e.preventDefault();
+    const p = e.touches ? e.touches[0] : e;
+    const c = cellAtPoint(p.clientX, p.clientY);
+    if (c) visit(parseInt(c.dataset.idx, 10));
+  }
+  function onUp(e) {
+    if (!tracking) return;
+    e.preventDefault();
+    tracking = false;
+    commit();
+  }
+  board.addEventListener("pointerdown", onDown);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+
+  // also support tap-to-build (click each letter then submit on space)
+  board.addEventListener("click", (e) => {
+    if (tracking) return;
+    const cell = e.target.closest(".wh-cell");
+    if (!cell) return;
+    visit(parseInt(cell.dataset.idx, 10));
+  });
+  document.addEventListener("keydown", whKeyHandler);
+  function whKeyHandler(e) {
+    if (!gameState.activeGame || gameState.activeGame.type !== "word_hunt") {
+      document.removeEventListener("keydown", whKeyHandler);
+      return;
+    }
+    if (e.key === "Enter") commit();
+    else if (e.key === "Escape" || e.key === "Backspace") {
+      whState.current = []; paint();
+    }
+  }
+}
+
+// ===========================================================================
+// CHESS renderer
+// ===========================================================================
+const PIECE_GLYPH = { K:"♔", Q:"♕", R:"♖", B:"♗", N:"♘", P:"♙",
+                       k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟" };
+const chessUI = { selected: null, legal: [] };
+
+function renderChess(body, s) {
+  chessUI.selected = chessUI.selected || null;
+  const wrap = document.createElement("div");
+  wrap.className = "chess-wrap";
+  const myColor = s.white === state.username ? "w" : (s.black === state.username ? "b" : null);
+  const flip = myColor === "b";
+  const board = document.createElement("div");
+  board.className = "chess-board";
+  for (let dr = 0; dr < 8; dr++) {
+    for (let dc = 0; dc < 8; dc++) {
+      const r = flip ? 7 - dr : dr;
+      const c = flip ? 7 - dc : dc;
+      const sq = document.createElement("div");
+      sq.className = "chess-sq " + (((r + c) % 2 === 0) ? "light" : "dark");
+      sq.dataset.r = String(r); sq.dataset.c = String(c);
+      const p = s.board[r][c];
+      if (p && p !== ".") {
+        const piece = document.createElement("div");
+        piece.className = "piece";
+        piece.textContent = PIECE_GLYPH[p] || "?";
+        if (p === p.toLowerCase()) { piece.style.color = "#222"; piece.style.textShadow = "0 0 1px #fff"; }
+        sq.appendChild(piece);
+      }
+      if (s.last_move && ((s.last_move.from[0]===r && s.last_move.from[1]===c) ||
+                          (s.last_move.to[0]===r && s.last_move.to[1]===c))) {
+        sq.classList.add("last");
+      }
+      if (chessUI.selected && chessUI.selected.r === r && chessUI.selected.c === c) {
+        sq.classList.add("sel");
+      }
+      if (chessUI.legal.some((m) => m.r === r && m.c === c)) {
+        if (p !== ".") sq.classList.add("cap"); else sq.classList.add("dot");
+      }
+      sq.addEventListener("click", () => onChessClick(r, c, s, myColor));
+      board.appendChild(sq);
+    }
+  }
+  wrap.appendChild(board);
+
+  const side = document.createElement("div");
+  side.className = "chess-side";
+  const w = document.createElement("div");
+  w.className = "row" + (s.turn === "w" && !s.ended ? " active" : "");
+  w.innerHTML = `<span>♔ White</span><span>${s.white}${state.username === s.white ? " (you)" : ""}</span>`;
+  const b = document.createElement("div");
+  b.className = "row" + (s.turn === "b" && !s.ended ? " active" : "");
+  b.innerHTML = `<span>♚ Black</span><span>${s.black}${state.username === s.black ? " (you)" : ""}</span>`;
+  side.appendChild(w); side.appendChild(b);
+  if (s.in_check && !s.ended) {
+    const chk = document.createElement("div");
+    chk.className = "game-banner err";
+    chk.textContent = "Check!";
+    side.appendChild(chk);
+  }
+  wrap.appendChild(side);
+  body.appendChild(wrap);
+}
+
+function onChessClick(r, c, s, myColor) {
+  if (s.ended || !myColor || s.turn !== myColor) return;
+  const piece = s.board[r][c];
+  const mine = piece !== "." && ((myColor === "w" && piece === piece.toUpperCase()) ||
+                                 (myColor === "b" && piece === piece.toLowerCase()));
+  if (chessUI.selected) {
+    if (chessUI.legal.some((m) => m.r === r && m.c === c)) {
+      // promotion?
+      const sp = s.board[chessUI.selected.r][chessUI.selected.c];
+      let promo = "q";
+      if (sp.toLowerCase() === "p" && (r === 0 || r === 7)) {
+        const ans = (prompt("Promote to (q, r, b, n)?", "q") || "q").toLowerCase();
+        if (["q","r","b","n"].includes(ans)) promo = ans;
+      }
+      sendGameAction({ kind: "move", from: [chessUI.selected.r, chessUI.selected.c], to: [r, c], promotion: promo });
+      chessUI.selected = null; chessUI.legal = [];
+      rerenderGameView();
+      return;
+    }
+    if (mine) {
+      chessUI.selected = { r, c };
+      chessUI.legal = clientChessLegalMoves(s, r, c);
+      rerenderGameView();
+      return;
+    }
+    chessUI.selected = null; chessUI.legal = [];
+    rerenderGameView();
+    return;
+  }
+  if (mine) {
+    chessUI.selected = { r, c };
+    chessUI.legal = clientChessLegalMoves(s, r, c);
+    rerenderGameView();
+  }
+}
+
+// Client-side move hint (server is still authoritative). Mirror of pseudo-moves
+// without castling / in-check filtering -- enough to draw helpful dots.
+function clientChessLegalMoves(s, fr, fc) {
+  const piece = s.board[fr][fc];
+  if (!piece || piece === ".") return [];
+  const color = piece === piece.toUpperCase() ? "w" : "b";
+  const opp = color === "w" ? "b" : "w";
+  const moves = [];
+  const board = s.board;
+  function colorOf(p) { return p === "." ? null : (p === p.toUpperCase() ? "w" : "b"); }
+  function add(r, c) {
+    if (r<0||r>7||c<0||c>7) return;
+    const t = board[r][c];
+    if (t === "." || colorOf(t) !== color) moves.push({ r, c });
+  }
+  function ray(dr, dc) {
+    let r = fr + dr, c = fc + dc;
+    while (r>=0&&r<8&&c>=0&&c<8) {
+      const t = board[r][c];
+      if (t === ".") moves.push({ r, c });
+      else { if (colorOf(t) !== color) moves.push({ r, c }); break; }
+      r += dr; c += dc;
+    }
+  }
+  const pt = piece.toLowerCase();
+  if (pt === "p") {
+    const d = color === "w" ? -1 : 1;
+    const start = color === "w" ? 6 : 1;
+    if (board[fr+d] && board[fr+d][fc] === ".") {
+      moves.push({ r: fr+d, c: fc });
+      if (fr === start && board[fr+2*d][fc] === ".") moves.push({ r: fr+2*d, c: fc });
+    }
+    for (const dc of [-1, 1]) {
+      const r = fr + d, c = fc + dc;
+      if (r<0||r>7||c<0||c>7) continue;
+      const t = board[r][c];
+      if (t !== "." && colorOf(t) !== color) moves.push({ r, c });
+    }
+  } else if (pt === "n") {
+    for (const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) add(fr+dr, fc+dc);
+  } else if (pt === "b") for (const [dr,dc] of [[-1,-1],[-1,1],[1,-1],[1,1]]) ray(dr,dc);
+  else if (pt === "r") for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) ray(dr,dc);
+  else if (pt === "q") for (const [dr,dc] of [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]]) ray(dr,dc);
+  else if (pt === "k") {
+    for (let dr=-1; dr<=1; dr++) for (let dc=-1; dc<=1; dc++) if (dr||dc) add(fr+dr, fc+dc);
+    // castling hints
+    const home = color === "w" ? 7 : 0;
+    if (fr === home && fc === 4) {
+      if (board[home][5] === "." && board[home][6] === "." && board[home][7].toLowerCase() === "r") moves.push({ r: home, c: 6 });
+      if (board[home][3] === "." && board[home][2] === "." && board[home][1] === "." && board[home][0].toLowerCase() === "r") moves.push({ r: home, c: 2 });
+    }
+  }
+  return moves;
+}
+
+// ===========================================================================
+// UNO renderer
+// ===========================================================================
+function renderUno(body, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "uno-wrap";
+
+  // Opponents
+  const top = document.createElement("div");
+  top.className = "uno-top";
+  for (const p of s.players) {
+    if (p === state.username) continue;
+    const op = document.createElement("div");
+    op.className = "uno-opponent" + (s.current === p ? " active" : "");
+    op.innerHTML = `<div class="name">${p}</div>
+      <div class="back-card"></div>
+      <div class="cards">${s.counts[p]} card${s.counts[p]===1?"":"s"}</div>`;
+    top.appendChild(op);
+  }
+  wrap.appendChild(top);
+
+  // Middle: deck + discard
+  const mid = document.createElement("div");
+  mid.className = "uno-middle";
+  const deck = document.createElement("div");
+  deck.className = "uno-deck";
+  const deckCard = document.createElement("div");
+  deckCard.className = "uno-card back";
+  deckCard.textContent = "UNO";
+  deck.appendChild(deckCard);
+  const deckLabel = document.createElement("div");
+  deckLabel.style.fontSize = "11px";
+  deckLabel.style.color = "var(--text-dim)";
+  deckLabel.textContent = `Draw (${s.deck_size})`;
+  deck.appendChild(deckLabel);
+  const isMyTurn = s.current === state.username;
+  if (isMyTurn && !s.awaiting_color && !s.ended) {
+    deck.addEventListener("click", () => sendGameAction({ kind: "draw" }));
+    deck.style.cursor = "pointer";
+  }
+  mid.appendChild(deck);
+
+  const dir = document.createElement("div");
+  dir.className = "uno-direction";
+  dir.textContent = s.direction === 1 ? "⟶" : "⟵";
+  mid.appendChild(dir);
+
+  const topCard = renderUnoCard(s.top_card, false);
+  if (s.top_card.color === "W" && s.chosen_color && s.chosen_color !== "W") {
+    topCard.style.boxShadow = `inset 0 0 0 6px ${unoColorHex(s.chosen_color)}`;
+  }
+  mid.appendChild(topCard);
+  wrap.appendChild(mid);
+
+  if (s.must_draw > 0 && isMyTurn && !s.ended) {
+    const banner = document.createElement("div");
+    banner.className = "game-banner err";
+    banner.textContent = `You must draw ${s.must_draw} (or stack a matching card)`;
+    wrap.appendChild(banner);
+  }
+
+  // My hand
+  const hand = document.createElement("div");
+  hand.className = "uno-hand";
+  (s.my_hand || []).forEach((card, idx) => {
+    const el = renderUnoCard(card, true);
+    const can = isMyTurn && !s.awaiting_color && _unoCanPlay(card, s);
+    if (can) el.classList.add("playable");
+    else el.classList.add("disabled");
+    if (can) el.addEventListener("click", () => sendGameAction({ kind: "play", card_index: idx }));
+    hand.appendChild(el);
+  });
+  wrap.appendChild(hand);
+
+  if (s.awaiting_color === state.username && !s.ended) {
+    const pick = document.createElement("div");
+    pick.className = "uno-color-pick";
+    for (const c of ["R","Y","G","B"]) {
+      const sw = document.createElement("div");
+      sw.className = "swatch";
+      sw.style.background = unoColorHex(c);
+      sw.title = "Pick " + c;
+      sw.addEventListener("click", () => sendGameAction({ kind: "choose_color", color: c }));
+      pick.appendChild(sw);
+    }
+    wrap.appendChild(pick);
+  }
+
+  body.appendChild(wrap);
+}
+
+function _unoCanPlay(card, s) {
+  const top = s.top_card;
+  if (s.must_draw > 0) {
+    if (top.value === "d2"  && card.value === "d2")  return true;
+    if (top.value === "wd4" && card.value === "wd4") return true;
+    return false;
+  }
+  if (card.color === "W") return true;
+  if (card.color === s.chosen_color) return true;
+  if (card.value === top.value && top.color !== "W") return true;
+  return false;
+}
+
+function renderUnoCard(card, sized) {
+  const el = document.createElement("div");
+  el.className = "uno-card " + card.color;
+  el.textContent = _unoLabel(card);
+  return el;
+}
+function _unoLabel(card) {
+  if (card.value === "wild") return "★";
+  if (card.value === "wd4")  return "+4";
+  if (card.value === "d2")   return "+2";
+  if (card.value === "skip") return "Ø";
+  if (card.value === "rev")  return "⇄";
+  return card.value;
+}
+function unoColorHex(c) {
+  return { R:"#d63031", Y:"#fdcb6e", G:"#00b894", B:"#0984e3" }[c] || "#888";
+}
+
+// ===========================================================================
+// 8-BALL POOL renderer (canvas + animation)
+// ===========================================================================
+const poolUI = { canvas: null, ctx: null, animation: null, aim: null, lastFrameSig: null };
+
+function renderPool(body, s) {
+  const wrap = document.createElement("div");
+  wrap.className = "pool-wrap";
+
+  const info = document.createElement("div");
+  info.className = "pool-info";
+  for (const p of s.players) {
+    const el = document.createElement("div");
+    el.className = (p === state.username ? "me" : "opp") + (p === s.current ? " active" : "");
+    let group = s.assignments[p] || "open";
+    el.textContent = `${p} (${group})`;
+    info.appendChild(el);
+  }
+  wrap.appendChild(info);
+
+  const cw = document.createElement("div");
+  cw.className = "pool-canvas-wrap";
+  const canvas = document.createElement("canvas");
+  canvas.className = "pool-canvas";
+  canvas.width = s.table.w;
+  canvas.height = s.table.h;
+  canvas.style.maxWidth = "100%";
+  canvas.style.height = "auto";
+  cw.appendChild(canvas);
+  wrap.appendChild(cw);
+  body.appendChild(wrap);
+
+  poolUI.canvas = canvas;
+  poolUI.ctx = canvas.getContext("2d");
+
+  // animate last shot if new
+  const sig = s.last_shot_frames && s.last_shot_frames.length ? JSON.stringify(s.last_shot_frames[0]) + s.last_shot_frames.length : null;
+  if (sig && sig !== poolUI.lastFrameSig) {
+    poolUI.lastFrameSig = sig;
+    animatePoolFrames(s, s.last_shot_frames);
+  } else {
+    drawPool(s, s.balls);
+  }
+
+  const myTurn = s.current === state.username && !s.ended && !poolUI.animation;
+  if (myTurn) {
+    if (s.cue_in_hand) {
+      const banner = document.createElement("div");
+      banner.className = "game-banner";
+      banner.textContent = "Click on the table to place the cue ball.";
+      wrap.appendChild(banner);
+      canvas.addEventListener("pointerdown", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const y = (e.clientY - rect.top)  * (canvas.height / rect.height);
+        sendGameAction({ kind: "place_cue", x, y });
+      });
+    } else {
+      const banner = document.createElement("div");
+      banner.className = "game-banner";
+      banner.textContent = "Drag from the cue ball to aim. Distance = power.";
+      wrap.appendChild(banner);
+      setupPoolAim(canvas, s);
+    }
+  }
+}
+
+function drawPool(s, balls) {
+  const ctx = poolUI.ctx;
+  ctx.clearRect(0, 0, s.table.w, s.table.h);
+  ctx.fillStyle = "#2d6a4f";
+  ctx.fillRect(0, 0, s.table.w, s.table.h);
+  // pockets
+  ctx.fillStyle = "#000";
+  for (const [px, py] of s.table.pockets) {
+    ctx.beginPath(); ctx.arc(px, py, s.table.pocket_r, 0, Math.PI*2); ctx.fill();
+  }
+  // balls
+  for (const b of balls) {
+    if (!b.in) continue;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, s.table.ball_r, 0, Math.PI*2);
+    ctx.fillStyle = ballColor(b);
+    ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = "#000"; ctx.stroke();
+    // stripe band
+    if (b.id >= 9 && b.id <= 15) {
+      ctx.beginPath();
+      ctx.fillStyle = "white";
+      ctx.arc(b.x, b.y, s.table.ball_r * 0.55, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = ballColor(b);
+      ctx.fillRect(b.x - s.table.ball_r * 0.65, b.y - 3, s.table.ball_r * 1.3, 6);
+    }
+    // number
+    if (b.id !== 0 && (b.id < 9 || b.id > 15)) {
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, s.table.ball_r * 0.4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    if (b.id !== 0) {
+      ctx.fillStyle = b.id === 8 ? "white" : "black";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(b.id), b.x, b.y);
+    }
+  }
+  // aim line
+  if (poolUI.aim) {
+    const cue = balls.find((b) => b.id === 0);
+    if (cue && cue.in) {
+      ctx.strokeStyle = "rgba(255,255,255,0.7)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cue.x, cue.y);
+      ctx.lineTo(cue.x - poolUI.aim.dx, cue.y - poolUI.aim.dy);
+      ctx.stroke();
+    }
+  }
+}
+
+function ballColor(b) {
+  if (b.id === 0) return "#fff";
+  if (b.id === 8) return "#222";
+  const solids = { 1:"#f4d03f", 2:"#3498db", 3:"#e74c3c", 4:"#8e44ad", 5:"#e67e22", 6:"#27ae60", 7:"#8b0000" };
+  const stripes = { 9:"#f4d03f",10:"#3498db",11:"#e74c3c",12:"#8e44ad",13:"#e67e22",14:"#27ae60",15:"#8b0000" };
+  return (solids[b.id] || stripes[b.id] || "#fff");
+}
+
+function animatePoolFrames(s, frames) {
+  cancelAnimationFrame(poolUI.animation);
+  let i = 0;
+  function step() {
+    if (i >= frames.length) {
+      poolUI.animation = null;
+      drawPool(s, s.balls);
+      return;
+    }
+    drawPool(s, frames[i]);
+    i++;
+    poolUI.animation = requestAnimationFrame(step);
+  }
+  step();
+}
+
+function setupPoolAim(canvas, s) {
+  let aiming = false;
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top)  * (canvas.height / rect.height),
+    };
+  }
+  function onDown(e) {
+    if (poolUI.animation) return;
+    const cue = s.balls.find((b) => b.id === 0);
+    if (!cue || !cue.in) return;
+    const p = getPos(e);
+    const dx = p.x - cue.x, dy = p.y - cue.y;
+    if (dx*dx + dy*dy > (s.table.ball_r * 4) ** 2) return;
+    aiming = true;
+    poolUI.aim = { dx: 0, dy: 0 };
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!aiming) return;
+    const cue = s.balls.find((b) => b.id === 0);
+    const p = getPos(e);
+    poolUI.aim = { dx: cue.x - p.x, dy: cue.y - p.y };
+    drawPool(s, s.balls);
+  }
+  function onUp(e) {
+    if (!aiming) return;
+    aiming = false;
+    if (!poolUI.aim) return;
+    const scale = 0.18;
+    const dx = poolUI.aim.dx * scale;
+    const dy = poolUI.aim.dy * scale;
+    poolUI.aim = null;
+    if (Math.hypot(dx, dy) < 0.5) return;
+    sendGameAction({ kind: "shoot", dx, dy });
+  }
+  canvas.addEventListener("pointerdown", onDown);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
+//==============================================================
+// EMOJI REACTION PICKER
+//==============================================================
+const QUICK_EMOJIS = [
+  "❤️","👍","👎","😂","🔥","🎉","😮","😢",
+  "😡","🙏","👀","💯","✅","❌","🤔","🥳",
+  "😍","😭","😎","🤯","🤝","👏","🚀","💀",
+  "🍕","☕","🎯","💡","⚡","🌈","🌟","🦄",
+];
+
+let activePicker = null;
+
+function openEmojiPicker(messageId, anchorEl) {
+  closeEmojiPicker();
+
+  const picker = document.createElement("div");
+  picker.className = "emoji-picker";
+  picker.dataset.messageId = messageId;
+  picker.addEventListener("mousedown", (e) => e.stopPropagation());
+  picker.addEventListener("click", (e) => e.stopPropagation());
+
+  const search = document.createElement("input");
+  search.className = "search";
+  search.placeholder = "Search emoji…";
+  picker.appendChild(search);
+
+  const grid = document.createElement("div");
+  grid.className = "emoji-grid";
+  picker.appendChild(grid);
+
+  const footer = document.createElement("div");
+  footer.className = "footer";
+  footer.textContent = "Click an emoji to react · Esc to close";
+  picker.appendChild(footer);
+
+  document.body.appendChild(picker);
+  activePicker = picker;
+
+  positionPicker(picker, anchorEl);
+  renderPickerGrid(grid, "");
+  search.addEventListener("input", () => renderPickerGrid(grid, search.value));
+  search.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeEmojiPicker();
+    if (e.key === "Enter") {
+      const first = grid.querySelector("button");
+      if (first) first.click();
+    }
+  });
+  setTimeout(() => search.focus(), 0);
+}
+
+function positionPicker(picker, anchorEl) {
+  const r = anchorEl.getBoundingClientRect();
+  const pw = 340, ph = 360, gap = 6;
+  let left = r.right - pw;
+  let top  = r.bottom + gap;
+  if (top + ph > window.innerHeight - 10) top = Math.max(10, r.top - ph - gap);
+  if (left < 10) left = 10;
+  if (left + pw > window.innerWidth - 10) left = window.innerWidth - pw - 10;
+  picker.style.left = left + "px";
+  picker.style.top  = top  + "px";
+}
+
+function renderPickerGrid(grid, query) {
+  grid.innerHTML = "";
+  const q = (query || "").trim().toLowerCase();
+  let emojis;
+  if (!q) {
+    emojis = QUICK_EMOJIS.map((em) => ({ emoji: em, name: nameForEmoji(em) }));
+  } else {
+    const startsWith = [], includes = [];
+    for (const n of EMOJI_NAMES) {
+      if (n.startsWith(q)) startsWith.push(n);
+      else if (n.includes(q)) includes.push(n);
+    }
+    emojis = [...startsWith, ...includes]
+      .slice(0, 64)
+      .map((n) => ({ emoji: EMOJI_MAP[n], name: n }));
+  }
+  if (!emojis.length) {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "No emoji found";
+    grid.appendChild(e);
+    return;
+  }
+  const mid = parseInt(activePicker.dataset.messageId, 10);
+  for (const { emoji, name } of emojis) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.title = name ? `:${name}:` : emoji;
+    b.textContent = emoji;
+    b.addEventListener("click", () => {
+      send({ type: "react", message_id: mid, emoji });
+      closeEmojiPicker();
+    });
+    grid.appendChild(b);
+  }
+}
+
+function nameForEmoji(em) {
+  for (const [n, e] of Object.entries(EMOJI_MAP)) if (e === em) return n;
+  return "";
+}
+
+function closeEmojiPicker() {
+  if (activePicker && activePicker.parentNode) {
+    activePicker.parentNode.removeChild(activePicker);
+  }
+  activePicker = null;
+}
+
+document.addEventListener("mousedown", (e) => {
+  if (!activePicker) return;
+  if (!activePicker.contains(e.target)) closeEmojiPicker();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeEmojiPicker();
+});
+window.addEventListener("resize", closeEmojiPicker);
+messagesEl.addEventListener("scroll", closeEmojiPicker);
+
+//==============================================================
+// UNREAD / TAB-AWAY BADGE
+//==============================================================
+const faviconEl = document.getElementById("favicon");
+
+function makeFaviconDataURL(text, bg, fg) {
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size; c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fillStyle = bg;
+  ctx.fill();
+  if (text) {
+    ctx.fillStyle = fg;
+    const t = String(text);
+    const fontSize = t.length >= 3 ? 28 : t.length === 2 ? 36 : 42;
+    ctx.font = `bold ${fontSize}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(t, size / 2, size / 2 + 2);
+  }
+  return c.toDataURL("image/png");
+}
+
+const FAVICON_IDLE  = makeFaviconDataURL("", "#7c5cff", "#ffffff");
+function faviconUnread(n) {
+  const label = n > 99 ? "99+" : String(n);
+  return makeFaviconDataURL(label, "#ef4444", "#ffffff");
+}
+
+function setFavicon(href) {
+  if (faviconEl) faviconEl.href = href;
+}
+
+function updateBadge() {
+  if (state.unreadCount > 0) {
+    document.title = `(${state.unreadCount > 99 ? "99+" : state.unreadCount}) ${BASE_TITLE}`;
+    setFavicon(faviconUnread(state.unreadCount));
+  } else {
+    document.title = BASE_TITLE;
+    setFavicon(FAVICON_IDLE);
+  }
+}
+
+function noteIncomingForUnread(m) {
+  if (!state.hidden) return;
+  if (!m || m.system) return;
+  if (m.username === state.username) return;
+  if (state.firstUnreadId === null) state.firstUnreadId = m.id;
+  state.unreadCount += 1;
+  updateBadge();
+}
+
+function clearUnread() {
+  state.unreadCount = 0;
+  updateBadge();
+}
+
+function resetUnreadDivider() {
+  state.firstUnreadId = null;
+  const existing = messagesList.querySelector('[data-role="unread-divider"]');
+  if (existing) existing.remove();
+}
+
+function onBecameVisible() {
+  state.hidden = false;
+  clearUnread();
+}
+function onBecameHidden() {
+  state.hidden = true;
+  resetUnreadDivider();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) onBecameHidden();
+  else onBecameVisible();
+});
+window.addEventListener("focus", onBecameVisible);
+window.addEventListener("blur", () => {
+  if (document.hidden || !document.hasFocus()) onBecameHidden();
+});
+
+state.hidden = document.hidden || !document.hasFocus();
+setFavicon(FAVICON_IDLE);
+document.title = BASE_TITLE;
+
+//==============================================================
+// BOOT
+//==============================================================
+connect();
+</script>
+</body>
+</html>
