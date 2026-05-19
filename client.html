@@ -1192,7 +1192,7 @@
 //==============================================================
 // CONFIG
 //==============================================================
-const WS_URL = "ws://localhost:8765";
+const WS_URL = "ws://ec2-3-144-138-147.us-east-2.compute.amazonaws.com:8765";
 const HTTP_BASE = WS_URL.replace(/^wss?:/, (m) => m === "wss:" ? "https:" : "http:").replace(/\/$/, "");
 const RECONNECT_DELAY_MS = 2500;
 const PING_INTERVAL_MS = 15000;
